@@ -23,6 +23,7 @@ const typeDefs = `#graphql
     me: Usuario
   }
 
+
   type Mutation {
     registro(nombre: String!, email: String!, password: String!, rol: Role!): AuthPayload!
     login(email: String!, password: String!): AuthPayload!
