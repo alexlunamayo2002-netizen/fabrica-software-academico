@@ -9,8 +9,9 @@
   },
   "dependencies": {
     "@apollo/server": "^4.11.0",
+    "dotenv": "^16.4.5",
     "graphql": "^16.9.0",
-    "dotenv": "^16.4.5"
+    "pg": "^8.22.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.7"
