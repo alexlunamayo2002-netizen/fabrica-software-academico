@@ -1,0 +1,87 @@
+name: Pipeline CI - Fábrica Académica (Node.js)
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  ci:
+    name: Integración Continua (Node.js & Calidad)
+    runs-on: ubuntu-latest
+
+    steps:
+      # [PASO 2] Descarga del código fuente
+      - name: Checkout del código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # [PASO 2] Configuración del entorno de ejecución para Node.js
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: backend/package-json.lock # Apunta al candado de tu backend
+
+      # [PASO 2] Instalación limpia de dependencias del Backend
+      - name: Instalar dependencias del Backend
+        run: |
+          cd backend
+          npm ci
+
+      # [PASO 3] Análisis estático de código con SonarCloud (Modo Node.js)
+      - name: SonarCloud Scan
+        uses: sonarsource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: backend # Analiza específicamente el código del backend
+
+  docker:
+    name: Construcción y Push de Imagen Docker
+    needs: ci
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # [PASO 4] Autenticación en el registro privado de GitHub (GHCR)
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Construcción local de la imagen apuntando al contexto del Backend
+      - name: Build imagen Docker (Local)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend # IMPORTANTE: Lee el Dockerfile de la carpeta backend
+          load: true
+          tags: ghcr.io/${{ github.repository_owner }}/fabrica-backend:test
+
+      # [PASO 3] Escaneo de seguridad del contenedor con Trivy
+      - name: Escaneo de Seguridad con Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'ghcr.io/${{ github.repository_owner }}/fabrica-backend:test'
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+
+      # [PASO 4] Publicación oficial de la imagen en GHCR
+      - name: Build and Push a GHCR
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/fabrica-backend:latest
+            ghcr.io/${{ github.repository_owner }}/fabrica-backend:${{ github.sha }}
