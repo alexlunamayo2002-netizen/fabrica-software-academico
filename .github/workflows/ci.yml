@@ -22,7 +22,7 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: backend/package-json.lock # Apunta al candado de tu backend
+          cache-dependency-path: backend/package-json.json # Apunta al candado de tu backend
 
       # [PASO 2] Instalación limpia de dependencias del Backend
       - name: Instalar dependencias del Backend
