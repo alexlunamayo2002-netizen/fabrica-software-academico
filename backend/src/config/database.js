@@ -9,7 +9,6 @@ const client = new Client({
   password: process.env.DB_PASSWORD,
   ssl: { rejectUnauthorized: false },
 });
-
 async function connectDB() {
   try {
     await client.connect();

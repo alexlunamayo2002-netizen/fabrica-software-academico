@@ -10,12 +10,13 @@ const resolvers = {
     updatedAt: (parent) => parent.updated_at,
   },
   Query: {
+    me: (_, __, context) => {
+      if (!context.user) throw new Error('No autenticado');
+      return context.user;
+    },
     usuarios: () => Usuario.findAll(),
     usuario: (_, { id }) => Usuario.findById(id),
     roles: () => Role.findAll(),
-    me: () => {
-      return null;
-    },
   },
   Mutation: {
     registro: async (_, { nombre, email, password, rolId }) => {
@@ -41,8 +42,38 @@ const resolvers = {
 
       return { token, usuario };
     },
-    login: () => {
-      throw new Error('No implementado aún');
+    login: async (_, { email, password }) => {
+      // 1. Get user & role
+      const result = await client.query(`
+        SELECT u.*, r.nombre as rol_nombre 
+        FROM usuarios u 
+        JOIN roles r ON u.rol_id = r.id 
+        WHERE u.email = $1
+      `, [email]);
+
+      if (result.rows.length === 0) throw new Error('Credenciales incorrectas');
+
+      const user = result.rows[0];
+
+      // 2. Compare password
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) throw new Error('Credenciales incorrectas');
+
+      const usuarioReturn = {
+        id: user.id,
+        nombre: user.nombre,
+        email: user.email,
+        rol: user.rol_nombre,
+        createdAt: user.created_at.toISOString()
+      };
+
+      // 3. Generate token
+      const token = jwt.sign(usuarioReturn, process.env.JWT_SECRET, { expiresIn: '1d' });
+
+      return {
+        token,
+        usuario: usuarioReturn
+      };
     },
   },
 };
