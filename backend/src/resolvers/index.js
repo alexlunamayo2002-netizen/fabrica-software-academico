@@ -1,13 +1,23 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { client } = require('../config/database');
+const { Role } = require('../models/Role');
+const { Usuario } = require('../models/Usuario');
 
 const resolvers = {
+  Usuario: {
+    rol: (parent) => Role.findById(parent.rol_id),
+    createdAt: (parent) => parent.created_at,
+    updatedAt: (parent) => parent.updated_at,
+  },
   Query: {
     me: (_, __, context) => {
       if (!context.user) throw new Error('No autenticado');
       return context.user;
     },
+    usuarios: () => Usuario.findAll(),
+    usuario: (_, { id }) => Usuario.findById(id),
+    roles: () => Role.findAll(),
   },
   Mutation: {
     registro: async (_, { nombre, email, password, rol }) => {
