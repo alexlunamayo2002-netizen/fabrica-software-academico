@@ -6,8 +6,8 @@ const { Usuario } = require('../models/Usuario');
 const resolvers = {
   Usuario: {
     rol: (parent) => Role.findById(parent.rol_id),
-    createdAt: (parent) => parent.created_at,
-    updatedAt: (parent) => parent.updated_at,
+    createdAt: (parent) => parent.created_at ? new Date(parent.created_at).toISOString() : new Date().toISOString(),
+    updatedAt: (parent) => parent.updated_at ? new Date(parent.updated_at).toISOString() : new Date().toISOString(),
   },
   Query: {
     me: (_, __, context) => {
@@ -20,36 +20,40 @@ const resolvers = {
   },
   Mutation: {
     registro: async (_, { nombre, email, password, rolId }) => {
-      const existente = await Usuario.findByEmail(email);
-      if (existente) {
-        throw new Error('El email ya está registrado');
-      }
+      // 1. Check if user exists
+      const userCheck = await client.query('SELECT * FROM usuarios WHERE email = $1', [email]);
+      if (userCheck.rows.length > 0) throw new Error('El usuario ya existe');
 
-      const hashedPassword = await bcrypt.hash(password, 10);
+      // 2. Hash password & insert
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
 
-      const usuario = await Usuario.create({
-        nombre,
-        email,
-        password: hashedPassword,
-        rol_id: rolId,
-      });
-
-      const token = jwt.sign(
-        { id: usuario.id, email: usuario.email, rol_id: usuario.rol_id },
-        process.env.JWT_SECRET,
-        { expiresIn: '24h' }
+      const insertResult = await client.query(
+        'INSERT INTO usuarios (nombre, email, password, rol_id) VALUES ($1, $2, $3, $4) RETURNING *',
+        [nombre, email, hashedPassword, rolId]
       );
+      
+      const user = insertResult.rows[0];
+      const usuarioReturn = {
+        id: user.id,
+        nombre: user.nombre,
+        email: user.email,
+        rol_id: user.rol_id,
+        created_at: user.created_at,
+        updated_at: user.updated_at
+      };
 
-      return { token, usuario };
+      // 3. Generate token
+      const token = jwt.sign(usuarioReturn, process.env.JWT_SECRET, { expiresIn: '1d' });
+
+      return {
+        token,
+        usuario: usuarioReturn
+      };
     },
     login: async (_, { email, password }) => {
-      // 1. Get user & role
-      const result = await client.query(`
-        SELECT u.*, r.nombre as rol_nombre 
-        FROM usuarios u 
-        JOIN roles r ON u.rol_id = r.id 
-        WHERE u.email = $1
-      `, [email]);
+      // 1. Get user
+      const result = await client.query(`SELECT * FROM usuarios WHERE email = $1`, [email]);
 
       if (result.rows.length === 0) throw new Error('Credenciales incorrectas');
 
@@ -63,8 +67,9 @@ const resolvers = {
         id: user.id,
         nombre: user.nombre,
         email: user.email,
-        rol: user.rol_nombre,
-        createdAt: user.created_at.toISOString()
+        rol_id: user.rol_id,
+        created_at: user.created_at,
+        updated_at: user.updated_at
       };
 
       // 3. Generate token
