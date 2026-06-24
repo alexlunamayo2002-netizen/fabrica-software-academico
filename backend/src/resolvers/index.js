@@ -7,8 +7,8 @@ const { Usuario } = require('../models/Usuario');
 const resolvers = {
   Usuario: {
     rol: (parent) => Role.findById(parent.rol_id),
-    createdAt: (parent) => parent.created_at,
-    updatedAt: (parent) => parent.updated_at,
+    createdAt: (parent) => parent.created_at ? new Date(parent.created_at).toISOString() : new Date().toISOString(),
+    updatedAt: (parent) => parent.updated_at ? new Date(parent.updated_at).toISOString() : new Date().toISOString(),
   },
   Query: {
     me: (_, __, context) => {
@@ -20,23 +20,18 @@ const resolvers = {
     roles: () => Role.findAll(),
   },
   Mutation: {
-    registro: async (_, { nombre, email, password, rol }) => {
+    registro: async (_, { nombre, email, password, rolId }) => {
       // 1. Check if user exists
       const userCheck = await client.query('SELECT * FROM usuarios WHERE email = $1', [email]);
       if (userCheck.rows.length > 0) throw new Error('El usuario ya existe');
 
-      // 2. Get rol id
-      const rolQuery = await client.query('SELECT id FROM roles WHERE nombre = $1', [rol]);
-      if (rolQuery.rows.length === 0) throw new Error('Rol no válido');
-      const rol_id = rolQuery.rows[0].id;
-
-      // 3. Hash password & insert
+      // 2. Hash password & insert
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
 
       const insertResult = await client.query(
         'INSERT INTO usuarios (nombre, email, password, rol_id) VALUES ($1, $2, $3, $4) RETURNING *',
-        [nombre, email, hashedPassword, rol_id]
+        [nombre, email, hashedPassword, rolId]
       );
       
       const user = insertResult.rows[0];
@@ -44,11 +39,12 @@ const resolvers = {
         id: user.id,
         nombre: user.nombre,
         email: user.email,
-        rol: rol,
-        createdAt: user.created_at.toISOString()
+        rol_id: user.rol_id,
+        created_at: user.created_at,
+        updated_at: user.updated_at
       };
 
-      // 4. Generate token
+      // 3. Generate token
       const token = jwt.sign(usuarioReturn, process.env.JWT_SECRET, { expiresIn: '1d' });
 
       return {
@@ -57,13 +53,8 @@ const resolvers = {
       };
     },
     login: async (_, { email, password }) => {
-      // 1. Get user & role
-      const result = await client.query(`
-        SELECT u.*, r.nombre as rol_nombre 
-        FROM usuarios u 
-        JOIN roles r ON u.rol_id = r.id 
-        WHERE u.email = $1
-      `, [email]);
+      // 1. Get user
+      const result = await client.query(`SELECT * FROM usuarios WHERE email = $1`, [email]);
 
       if (result.rows.length === 0) throw new Error('Credenciales incorrectas');
 
@@ -77,8 +68,9 @@ const resolvers = {
         id: user.id,
         nombre: user.nombre,
         email: user.email,
-        rol: user.rol_nombre,
-        createdAt: user.created_at.toISOString()
+        rol_id: user.rol_id,
+        created_at: user.created_at,
+        updated_at: user.updated_at
       };
 
       // 3. Generate token

@@ -38,54 +38,68 @@ export class AuthService {
             id
             nombre
             email
-            rol
+            rol {
+              nombre
+            }
             createdAt
           }
         }
       }
     `;
 
-    return this.http.post<{data: {login: AuthPayload}}>(this.apiUrl, {
+    return this.http.post<{data: {login: any}}>(this.apiUrl, {
       query,
       variables: { email, password }
     }).pipe(
       map(res => {
-        // If there are graphql errors, they would be handled by a generic interceptor or here.
-        // For now, we assume success if data is present.
         if (!res.data || !res.data.login) {
           throw new Error('Invalid credentials or backend error');
         }
-        return res.data.login;
+        
+        const payload = res.data.login;
+        // Transform the GraphQL response { rol: { nombre: 'ESTUDIANTE' } } into 'ESTUDIANTE'
+        payload.usuario.rol = payload.usuario.rol.nombre as Role;
+        
+        return payload as AuthPayload;
       }),
       tap(payload => this.handleAuthSuccess(payload))
     );
   }
 
   registro(nombre: string, email: string, password: string, rol: Role): Observable<AuthPayload> {
+    const rolId = rol === Role.ADMIN ? '1' : rol === Role.DOCENTE ? '2' : '3';
+    
     const query = `
-      mutation Registro($nombre: String!, $email: String!, $password: String!, $rol: Role!) {
-        registro(nombre: $nombre, email: $email, password: $password, rol: $rol) {
+      mutation Registro($nombre: String!, $email: String!, $password: String!, $rolId: ID!) {
+        registro(nombre: $nombre, email: $email, password: $password, rolId: $rolId) {
           token
           usuario {
             id
             nombre
             email
-            rol
+            rol {
+              nombre
+            }
             createdAt
           }
         }
       }
     `;
 
-    return this.http.post<{data: {registro: AuthPayload}}>(this.apiUrl, {
+    return this.http.post<{data: {registro: any}}>(this.apiUrl, {
       query,
-      variables: { nombre, email, password, rol }
+      variables: { nombre, email, password, rolId }
     }).pipe(
       map(res => {
         if (!res.data || !res.data.registro) {
           throw new Error('Registration failed');
         }
-        return res.data.registro;
+        
+        const payload = res.data.registro;
+        // Transform the GraphQL response { rol: { nombre: 'ESTUDIANTE' } } into 'ESTUDIANTE'
+        payload.usuario.rol = payload.usuario.rol.nombre as Role;
+        
+        return payload as AuthPayload;
       }),
       tap(payload => this.handleAuthSuccess(payload))
     );
