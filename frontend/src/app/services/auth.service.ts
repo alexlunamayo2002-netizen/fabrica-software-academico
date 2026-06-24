@@ -1,6 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap, map } from 'rxjs';
+import { Observable, tap, map, throwError, catchError } from 'rxjs';
+import { switchMap, of } from 'rxjs';
 import { AuthPayload, Usuario, Role } from '../models/user.model';
 import { environment } from '../../environments/environment';
 
@@ -47,22 +48,27 @@ export class AuthService {
       }
     `;
 
-    return this.http.post<{data: {login: any}}>(this.apiUrl, {
+    return this.http.post<any>(this.apiUrl, {
       query,
       variables: { email, password }
     }).pipe(
-      map(res => {
+      switchMap(res => {
+        if (res.errors && res.errors.length > 0) {
+          return throwError(() => new Error(res.errors[0].message));
+        }
         if (!res.data || !res.data.login) {
-          throw new Error('Invalid credentials or backend error');
+          return throwError(() => new Error('Error al iniciar sesión'));
         }
         
         const payload = res.data.login;
-        // Transform the GraphQL response { rol: { nombre: 'ESTUDIANTE' } } into 'ESTUDIANTE'
         payload.usuario.rol = payload.usuario.rol.nombre as Role;
         
-        return payload as AuthPayload;
+        return of(payload as AuthPayload);
       }),
-      tap(payload => this.handleAuthSuccess(payload))
+      tap(payload => this.handleAuthSuccess(payload)),
+      catchError(err => {
+        return throwError(() => err);
+      })
     );
   }
 
@@ -86,22 +92,27 @@ export class AuthService {
       }
     `;
 
-    return this.http.post<{data: {registro: any}}>(this.apiUrl, {
+    return this.http.post<any>(this.apiUrl, {
       query,
       variables: { nombre, email, password, rolId }
     }).pipe(
-      map(res => {
+      switchMap(res => {
+        if (res.errors && res.errors.length > 0) {
+          return throwError(() => new Error(res.errors[0].message));
+        }
         if (!res.data || !res.data.registro) {
-          throw new Error('Registration failed');
+          return throwError(() => new Error('Error en el registro'));
         }
         
         const payload = res.data.registro;
-        // Transform the GraphQL response { rol: { nombre: 'ESTUDIANTE' } } into 'ESTUDIANTE'
         payload.usuario.rol = payload.usuario.rol.nombre as Role;
         
-        return payload as AuthPayload;
+        return of(payload as AuthPayload);
       }),
-      tap(payload => this.handleAuthSuccess(payload))
+      tap(payload => this.handleAuthSuccess(payload)),
+      catchError(err => {
+        return throwError(() => err);
+      })
     );
   }
 
