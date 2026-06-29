@@ -105,12 +105,12 @@ try {
         // 3. Limpiar Resolvers
         const resolversPath = path.join(destBackend, 'src', 'resolvers', 'index.js');
         removeFromFile(resolversPath, /const { Auditoria } = require\('\.\.\/models\/Auditoria'\);\n/g);
-        removeFromFile(resolversPath, /\s*Auditoria: {[\s\S]*?},\n/g);
-        removeFromFile(resolversPath, /\s*\/\/ Queries de auditoría[\s\S]*?},\n\s*Mutation:/g, '\n  Mutation:');
-        removeFromFile(resolversPath, /\s*\/\/ 4\. Registrar evento de auditoría[\s\S]*?ipAddress\n\s*}\);\n/g);
-        removeFromFile(resolversPath, /\s*\/\/ Registrar intento fallido de login[\s\S]*?ipAddress\n\s*}\);\n/g);
-        removeFromFile(resolversPath, /\s*\/\/ Registrar login exitoso[\s\S]*?ipAddress\n\s*}\);\n/g);
-        removeFromFile(resolversPath, /\s*\/\/ Registrar logout[\s\S]*?ipAddress\n\s*}\);\n/g);
+        removeFromFile(resolversPath, /\s*\/\/ Queries de auditoría[\s\S]*?auditoriaByAccion[\s\S]*?},/g, '');
+        // Quitar llamadas al método registrar() dentro de login/logout/registro
+        removeFromFile(resolversPath, /\s*\/\/ 4\. Registrar evento de auditoría[\s\S]*?ipAddress\n\s*}\);/g);
+        removeFromFile(resolversPath, /\s*\/\/ Registrar intento fallido de login[\s\S]*?ipAddress\n\s*}\);/g);
+        removeFromFile(resolversPath, /\s*\/\/ Registrar login exitoso[\s\S]*?ipAddress\n\s*}\);/g);
+        removeFromFile(resolversPath, /\s*\/\/ Registrar logout[\s\S]*?ipAddress\n\s*}\);/g);
         removeFromFile(resolversPath, /\s*const ipAddress = context\.req \? .*? 'desconocida';\n/g);
     } else {
         console.log(`  ➔ ✅ Manteniendo Core Asset: [CA-012_ModeloAuditoria]`);

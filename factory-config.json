@@ -20,7 +20,7 @@
       "CA-009_EsquemaGraphQLBase": true,
       "CA-010_ResolversGraphQL": true,
       "CA-011_JWTMiddleware": true,
-      "CA-012_ModeloAuditoria": true,
+      "CA-012_ModeloAuditoria": false,
       "CA-013_ConfiguracionBD": true
     },
     "entorno": {
