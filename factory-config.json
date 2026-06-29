@@ -1,0 +1,21 @@
+{
+  "fabrica": {
+    "version": "1.0",
+    "rutas_core_assets": {
+      "frontend": "./frontend",
+      "backend": "./backend"
+    }
+  },
+  "configuracion_nuevo_proyecto": {
+    "nombre_default": "NuevoProyectoApp",
+    "features": {
+      "usarAuditoria": true,
+      "roles": ["ADMIN", "DOCENTE", "ESTUDIANTE"],
+      "registroAbierto": true
+    },
+    "entorno": {
+      "db_host_template": "tu-host.render.com",
+      "puerto_backend": 4000
+    }
+  }
+}
