@@ -11,7 +11,7 @@ def create_doc():
     
     doc.add_paragraph('Proyecto: Fábrica de Software Académico')
     doc.add_paragraph('Equipo: Jostin Quilca, Leonel Arellano, Alex Luna')
-    doc.add_paragraph('Versión del catálogo: 1.1')
+    doc.add_paragraph('Versión del catálogo: 1.2 (Smart Factory)')
     doc.add_paragraph('Fecha: Junio 2026')
     doc.add_paragraph('Línea de Producto: Sistemas Web Académicos con Autenticación y Auditoría')
     
@@ -42,7 +42,7 @@ def create_doc():
         ('12', 'CA-012', 'Modelo de Auditoría', 'Backend', '100%'),
         ('13', 'CA-013', 'Configuración de Base de Datos', 'Backend', '100%'),
         ('14', 'CA-014', 'Configuración de la Fábrica', 'Herramienta', '100%'),
-        ('15', 'CA-015', 'CLI de Ensamblaje', 'Herramienta', '100%'),
+        ('15', 'CA-015', 'CLI de Ensamblaje Inteligente', 'Herramienta', '100%'),
     ]
     
     for item in index_data:
@@ -169,22 +169,22 @@ def create_doc():
             "val": ["connectDB() imprime la fecha actual del servidor PostgreSQL", "El archivo .env está en .gitignore", "La conexión funciona con SSL habilitado"]
         },
         {
-            "id": "CA-014", "name": "Configuración de la Fábrica", "tech": "JSON", "file": "factory-config.json",
-            "desc": "Punto de control de variabilidad (Feature Toggles) de la línea de producción. Define qué características estarán habilitadas o deshabilitadas en el nuevo proyecto generado.",
-            "func": ["Define rutas estáticas de los Core Assets", "Almacena los Feature Flags (ej. usarAuditoria)", "Controla configuraciones de entorno iniciales"],
-            "var": [("Valores booleanos", "Configuración", "Apagar o encender funcionalidades (features.usarAuditoria = false)")],
-            "integ": "1. Mantener en la raíz de la Fábrica de Software\n2. Modificar antes de ejecutar el ensamblaje de un nuevo proyecto",
+            "id": "CA-014", "name": "Configuración de la Fábrica (Feature Toggles)", "tech": "JSON", "file": "factory-config.json",
+            "desc": "Punto de control de variabilidad de la línea de producción. Enumera explícitamente los 13 Core Assets permitiendo habilitar o deshabilitar funcionalidades opcionales mediante valores booleanos.",
+            "func": ["Listado completo de los 13 Core Assets", "Control de funcionalidades opcionales (ej. CA-012_ModeloAuditoria: false)", "Controla configuraciones de entorno iniciales (DB, Puertos)"],
+            "var": [("Valores booleanos por Asset", "Configuración", "Apagar o encender funcionalidades opcionales en el nuevo proyecto")],
+            "integ": "1. Mantener en la raíz de la Fábrica de Software\n2. Cambiar a 'false' los módulos no requeridos antes de ensamblar el proyecto",
             "deps": "Ninguna",
-            "val": ["Formato JSON válido sin errores de sintaxis"]
+            "val": ["Formato JSON válido", "Contiene el bloque core_assets con las 13 llaves"]
         },
         {
-            "id": "CA-015", "name": "CLI de Ensamblaje", "tech": "Node.js, FileSystem (fs)", "file": "crear_nueva_app.js",
-            "desc": "Script de línea de comandos que actúa como la 'cadena de montaje' de la fábrica. Clona automáticamente los Core Assets en un directorio nuevo basándose en la configuración definida en CA-014.",
-            "func": ["Lectura de configuración desde factory-config.json", "Clonación recursiva profunda del frontend y backend", "Exclusión inteligente de carpetas pesadas (node_modules, .git)", "Inyección automática de un archivo .env base para el backend"],
-            "var": [("Reglas de Exclusión", "Extensión", "Añadir más carpetas a ignorar (ej. coverage, dist)"), ("Scripts post-clonación", "Extensión", "Añadir la ejecución automática de npm install")],
-            "integ": "1. Ejecutar en la terminal desde la raíz del proyecto usando: node crear_nueva_app.js NombreDelProyecto",
+            "id": "CA-015", "name": "CLI de Ensamblaje Inteligente (Smart Scaffolding)", "tech": "Node.js, FileSystem (fs)", "file": "crear_nueva_app.js",
+            "desc": "Script de línea de comandos avanzado que actúa como la 'cadena de montaje'. Clona los Core Assets y realiza una poda inteligente del código fuente basándose en la configuración de CA-014.",
+            "func": ["Validación de seguridad: advierte y evita la eliminación de assets obligatorios (Commonalities)", "Poda Inteligente: Elimina modelos, rutas y referencias GraphQL de los assets apagados (Variabilities) mediante AST-level Regex", "Inyección automática de entorno base (.env)"],
+            "var": [("Reglas de Exclusión (Poda)", "Extensión", "Añadir lógica de regex para limpiar código de nuevos assets opcionales creados en el futuro")],
+            "integ": "1. Ejecutar en la terminal desde la raíz usando: node crear_nueva_app.js NombreDelProyecto",
             "deps": "CA-014 (Configuración de la Fábrica)",
-            "val": ["El script crea una carpeta nueva con todo el código base", "Las dependencias externas (node_modules) no se copian para ahorrar espacio"]
+            "val": ["Mantiene assets obligatorios aunque se configuren en false", "Elimina de forma quirúrgica rastros de código de assets marcados en false"]
         }
     ]
 
@@ -237,8 +237,8 @@ def create_doc():
         for v in asset['val']:
             doc.add_paragraph(f"[ ] {v}", style='List Bullet')
 
-    doc.save('Documentacion_Core_Assets_v2.docx')
-    print("Word document updated successfully with CA-014 and CA-015!")
+    doc.save('Documentacion_Core_Assets_v3.docx')
+    print("Word document updated successfully with detailed CA-014 and CA-015!")
 
 if __name__ == '__main__':
     create_doc()
