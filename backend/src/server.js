@@ -19,7 +19,7 @@ async function startServer() {
     context: async ({ req }) => {
       const token = req.headers.authorization || '';
       const user = verifyToken(token);
-      return { token, user };
+      return { token, user, req };
     },
   });
 
