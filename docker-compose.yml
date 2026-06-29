@@ -1,0 +1,76 @@
+# ============================================
+# Docker Compose — Fábrica de Software Académico
+# Orquestador de contenedores DevOps
+# ============================================
+# USO: docker-compose up --build
+# Esto levanta los 3 servicios (BD, Backend, Frontend)
+# con un solo comando.
+# ============================================
+
+services:
+
+  # ==========================================
+  # SERVICIO 1: Base de Datos PostgreSQL
+  # ==========================================
+  db:
+    image: postgres:16-alpine
+    container_name: fabrica_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: fabrica_secret_2026
+      POSTGRES_DB: bd_fabrica
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d bd_fabrica"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # SERVICIO 2: Backend (Node.js + Apollo GraphQL)
+  # ==========================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fabrica_backend
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: bd_fabrica
+      DB_USER: admin
+      DB_PASSWORD: fabrica_secret_2026
+      JWT_SECRET: jwt_super_secreto_fabrica_2026
+      PORT: 4000
+      NODE_ENV: production
+    ports:
+      - "4000:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ==========================================
+  # SERVICIO 3: Frontend (Angular + Nginx)
+  # ==========================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: fabrica_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+# ==========================================
+# VOLÚMENES PERSISTENTES
+# ==========================================
+volumes:
+  postgres_data:
+    driver: local
