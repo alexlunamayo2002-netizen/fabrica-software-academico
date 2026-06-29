@@ -44,55 +44,48 @@ const resolvers = {
   },
   Mutation: {
     registro: async (_, { nombre, email, password, rolId }, context) => {
-      // 1. Check if user exists
-      const userCheck = await client.query('SELECT * FROM usuarios WHERE email = $1', [email]);
-      if (userCheck.rows.length > 0) throw new Error('El usuario ya existe');
+      // 1. Verificar si el email ya existe (usando el modelo del compañero)
+      const existente = await Usuario.findByEmail(email);
+      if (existente) {
+        throw new Error('El email ya está registrado');
+      }
 
-      // 2. Hash password & insert
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
-
-      const insertResult = await client.query(
-        'INSERT INTO usuarios (nombre, email, password, rol_id) VALUES ($1, $2, $3, $4) RETURNING *',
-        [nombre, email, hashedPassword, rolId]
-      );
-      
-      const user = insertResult.rows[0];
-      const usuarioReturn = {
-        id: user.id,
-        nombre: user.nombre,
-        email: user.email,
-        rol_id: user.rol_id,
-        created_at: user.created_at,
-        updated_at: user.updated_at
-      };
+      // 2. Hash password & crear usuario (usando el modelo del compañero)
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const usuario = await Usuario.create({
+        nombre,
+        email,
+        password: hashedPassword,
+        rol_id: rolId,
+      });
 
       // 3. Generate token
-      const token = jwt.sign(usuarioReturn, process.env.JWT_SECRET, { expiresIn: '1d' });
+      const token = jwt.sign(
+        { id: usuario.id, email: usuario.email, rol_id: usuario.rol_id },
+        process.env.JWT_SECRET,
+        { expiresIn: '24h' }
+      );
 
       // 4. Registrar evento de auditoría
       const ipAddress = context.req ? (context.req.headers['x-forwarded-for'] || context.req.socket?.remoteAddress || 'desconocida') : 'desconocida';
       await Auditoria.registrar({
-        usuarioId: user.id,
+        usuarioId: usuario.id,
         accion: 'REGISTRO',
         entidad: 'usuarios',
-        entidadId: user.id,
+        entidadId: usuario.id,
         detalles: `Nuevo usuario registrado: ${email}`,
         ipAddress
       });
 
-      return {
-        token,
-        usuario: usuarioReturn
-      };
+      return { token, usuario };
     },
     login: async (_, { email, password }, context) => {
       const ipAddress = context.req ? (context.req.headers['x-forwarded-for'] || context.req.socket?.remoteAddress || 'desconocida') : 'desconocida';
 
-      // 1. Get user
-      const result = await client.query(`SELECT * FROM usuarios WHERE email = $1`, [email]);
+      // 1. Buscar usuario por email
+      const user = await Usuario.findByEmail(email);
 
-      if (result.rows.length === 0) {
+      if (!user) {
         // Registrar intento fallido de login
         await Auditoria.registrar({
           usuarioId: null,
@@ -104,8 +97,6 @@ const resolvers = {
         });
         throw new Error('Credenciales incorrectas');
       }
-
-      const user = result.rows[0];
 
       // 2. Compare password
       const isMatch = await bcrypt.compare(password, user.password);
@@ -132,7 +123,7 @@ const resolvers = {
       };
 
       // 3. Generate token
-      const token = jwt.sign(usuarioReturn, process.env.JWT_SECRET, { expiresIn: '1d' });
+      const token = jwt.sign(usuarioReturn, process.env.JWT_SECRET, { expiresIn: '24h' });
 
       // 4. Registrar login exitoso
       await Auditoria.registrar({
