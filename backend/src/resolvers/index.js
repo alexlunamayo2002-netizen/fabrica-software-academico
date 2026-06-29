@@ -3,12 +3,21 @@ const jwt = require('jsonwebtoken');
 const { client } = require('../config/database');
 const { Role } = require('../models/Role');
 const { Usuario } = require('../models/Usuario');
+const { Auditoria } = require('../models/Auditoria');
 
 const resolvers = {
   Usuario: {
     rol: (parent) => Role.findById(parent.rol_id),
     createdAt: (parent) => parent.created_at ? new Date(parent.created_at).toISOString() : new Date().toISOString(),
     updatedAt: (parent) => parent.updated_at ? new Date(parent.updated_at).toISOString() : new Date().toISOString(),
+  },
+  Auditoria: {
+    usuarioId: (parent) => parent.usuario_id,
+    entidadId: (parent) => parent.entidad_id,
+    ipAddress: (parent) => parent.ip_address,
+    fechaHora: (parent) => parent.fecha_hora ? new Date(parent.fecha_hora).toISOString() : new Date().toISOString(),
+    usuarioNombre: (parent) => parent.usuario_nombre || null,
+    usuarioEmail: (parent) => parent.usuario_email || null,
   },
   Query: {
     me: (_, __, context) => {
@@ -18,9 +27,23 @@ const resolvers = {
     usuarios: () => Usuario.findAll(),
     usuario: (_, { id }) => Usuario.findById(id),
     roles: () => Role.findAll(),
+
+    // Queries de auditoría
+    auditoria: async (_, { limit = 50, offset = 0 }, context) => {
+      if (!context.user) throw new Error('No autenticado');
+      return Auditoria.findAll(limit, offset);
+    },
+    auditoriaByUsuario: async (_, { usuarioId, limit = 50 }, context) => {
+      if (!context.user) throw new Error('No autenticado');
+      return Auditoria.findByUsuario(usuarioId, limit);
+    },
+    auditoriaByAccion: async (_, { accion, limit = 50 }, context) => {
+      if (!context.user) throw new Error('No autenticado');
+      return Auditoria.findByAccion(accion, limit);
+    },
   },
   Mutation: {
-    registro: async (_, { nombre, email, password, rolId }) => {
+    registro: async (_, { nombre, email, password, rolId }, context) => {
       // 1. Check if user exists
       const userCheck = await client.query('SELECT * FROM usuarios WHERE email = $1', [email]);
       if (userCheck.rows.length > 0) throw new Error('El usuario ya existe');
@@ -47,22 +70,57 @@ const resolvers = {
       // 3. Generate token
       const token = jwt.sign(usuarioReturn, process.env.JWT_SECRET, { expiresIn: '1d' });
 
+      // 4. Registrar evento de auditoría
+      const ipAddress = context.req ? (context.req.headers['x-forwarded-for'] || context.req.socket?.remoteAddress || 'desconocida') : 'desconocida';
+      await Auditoria.registrar({
+        usuarioId: user.id,
+        accion: 'REGISTRO',
+        entidad: 'usuarios',
+        entidadId: user.id,
+        detalles: `Nuevo usuario registrado: ${email}`,
+        ipAddress
+      });
+
       return {
         token,
         usuario: usuarioReturn
       };
     },
-    login: async (_, { email, password }) => {
+    login: async (_, { email, password }, context) => {
+      const ipAddress = context.req ? (context.req.headers['x-forwarded-for'] || context.req.socket?.remoteAddress || 'desconocida') : 'desconocida';
+
       // 1. Get user
       const result = await client.query(`SELECT * FROM usuarios WHERE email = $1`, [email]);
 
-      if (result.rows.length === 0) throw new Error('Credenciales incorrectas');
+      if (result.rows.length === 0) {
+        // Registrar intento fallido de login
+        await Auditoria.registrar({
+          usuarioId: null,
+          accion: 'LOGIN_FALLIDO',
+          entidad: 'usuarios',
+          entidadId: null,
+          detalles: `Intento de login fallido - email no encontrado: ${email}`,
+          ipAddress
+        });
+        throw new Error('Credenciales incorrectas');
+      }
 
       const user = result.rows[0];
 
       // 2. Compare password
       const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) throw new Error('Credenciales incorrectas');
+      if (!isMatch) {
+        // Registrar intento fallido de login
+        await Auditoria.registrar({
+          usuarioId: user.id,
+          accion: 'LOGIN_FALLIDO',
+          entidad: 'usuarios',
+          entidadId: user.id,
+          detalles: `Intento de login fallido - contraseña incorrecta: ${email}`,
+          ipAddress
+        });
+        throw new Error('Credenciales incorrectas');
+      }
 
       const usuarioReturn = {
         id: user.id,
@@ -76,10 +134,37 @@ const resolvers = {
       // 3. Generate token
       const token = jwt.sign(usuarioReturn, process.env.JWT_SECRET, { expiresIn: '1d' });
 
+      // 4. Registrar login exitoso
+      await Auditoria.registrar({
+        usuarioId: user.id,
+        accion: 'LOGIN',
+        entidad: 'usuarios',
+        entidadId: user.id,
+        detalles: `Login exitoso: ${email}`,
+        ipAddress
+      });
+
       return {
         token,
         usuario: usuarioReturn
       };
+    },
+    logout: async (_, __, context) => {
+      if (!context.user) throw new Error('No autenticado');
+
+      const ipAddress = context.req ? (context.req.headers['x-forwarded-for'] || context.req.socket?.remoteAddress || 'desconocida') : 'desconocida';
+
+      // Registrar logout
+      await Auditoria.registrar({
+        usuarioId: context.user.id,
+        accion: 'LOGOUT',
+        entidad: 'usuarios',
+        entidadId: context.user.id,
+        detalles: `Logout: ${context.user.email}`,
+        ipAddress
+      });
+
+      return true;
     },
   },
 };
