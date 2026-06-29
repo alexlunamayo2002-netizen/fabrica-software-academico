@@ -13,7 +13,7 @@ try {
 
 // 2. Obtener el nombre del proyecto de los argumentos de consola
 const projectName = process.argv[2] || config.configuracion_nuevo_proyecto.nombre_default;
-const targetDir = path.join(__dirname, '..', projectName); // Se crea al mismo nivel que FABRICA
+const targetDir = path.join(__dirname, '..', projectName);
 
 console.log(`\n🏭 INICIANDO ENSAMBLAJE DE LÍNEA DE PRODUCTO: ${projectName}`);
 console.log(`========================================================`);
@@ -62,51 +62,67 @@ try {
     
     console.log(`✅ Código base extraído.`);
 
-    console.log(`\n🎛️  2. Aplicando Variabilidad Inteligente (Poda de Core Assets)...`);
-    const features = config.configuracion_nuevo_proyecto.features;
+    console.log(`\n🎛️  2. Verificando Configuración de Core Assets...`);
+    const assets = config.configuracion_nuevo_proyecto.core_assets;
+
+    // Validación de Assets Obligatorios (Commonalities)
+    const obligatorios = [
+        'CA-001_DesignSystem', 'CA-002_ModeloUsuarioFront', 'CA-003_AuthService',
+        'CA-004_AuthGuard', 'CA-005_RoleGuard', 'CA-006_Login', 'CA-008_Dashboard',
+        'CA-009_EsquemaGraphQLBase', 'CA-010_ResolversGraphQL', 'CA-011_JWTMiddleware', 
+        'CA-013_ConfiguracionBD'
+    ];
+
+    for (const ca of obligatorios) {
+        if (!assets[ca]) {
+            console.log(`  ⚠️  ADVERTENCIA: Has marcado [${ca}] como false, pero es un Core Asset OBLIGATORIO. El sistema lo mantendrá clonado para evitar romper la arquitectura base.`);
+        }
+    }
 
     // =========================================================================
-    // REGLA 1: AUDITORÍA (CA-012)
+    // REGLA 1: AUDITORÍA (CA-012) - Punto de Variabilidad
     // =========================================================================
-    if (!features.usarAuditoria) {
-        console.log(`  ➔ ✂️ Poda detectada: Auditoría deshabilitada. Eliminando dependencias de código...`);
+    if (!assets['CA-012_ModeloAuditoria']) {
+        console.log(`  ➔ ✂️  Poda detectada: [CA-012_ModeloAuditoria] deshabilitada. Eliminando dependencias de código...`);
         
-        // 1. Borrar archivo del modelo
+        // 1. Borrar archivo del modelo y scripts
         const auditoriaModelPath = path.join(destBackend, 'src', 'models', 'Auditoria.js');
         if (fs.existsSync(auditoriaModelPath)) fs.unlinkSync(auditoriaModelPath);
         
-        // 2. Limpiar GraphQL Schema (Eliminar tipo y queries)
+        const createAuditScript = path.join(destBackend, 'scripts', 'create_audit_table.js');
+        if (fs.existsSync(createAuditScript)) fs.unlinkSync(createAuditScript);
+
+        const migrateAuditScript = path.join(destBackend, 'scripts', 'migrate_auditoria.js');
+        if (fs.existsSync(migrateAuditScript)) fs.unlinkSync(migrateAuditScript);
+
+        // 2. Limpiar GraphQL Schema
         const typeDefsPath = path.join(destBackend, 'src', 'schema', 'typeDefs.js');
         removeFromFile(typeDefsPath, /type Auditoria {[\s\S]*?}\n\n/g);
         removeFromFile(typeDefsPath, /\s*auditoria\(.*?\): \[Auditoria!\]!\n/g);
         removeFromFile(typeDefsPath, /\s*auditoriaByUsuario\(.*?\): \[Auditoria!\]!\n/g);
         removeFromFile(typeDefsPath, /\s*auditoriaByAccion\(.*?\): \[Auditoria!\]!\n/g);
         
-        // 3. Limpiar Resolvers (Eliminar importaciones, resolvers de campo, queries y registro de eventos)
+        // 3. Limpiar Resolvers
         const resolversPath = path.join(destBackend, 'src', 'resolvers', 'index.js');
-        // Quitar importación
         removeFromFile(resolversPath, /const { Auditoria } = require\('\.\.\/models\/Auditoria'\);\n/g);
-        // Quitar resolver de campo
         removeFromFile(resolversPath, /\s*Auditoria: {[\s\S]*?},\n/g);
-        // Quitar queries enteras (forma simple)
         removeFromFile(resolversPath, /\s*\/\/ Queries de auditoría[\s\S]*?},\n\s*Mutation:/g, '\n  Mutation:');
-        // Quitar llamadas al método registrar() dentro de login/logout/registro
         removeFromFile(resolversPath, /\s*\/\/ 4\. Registrar evento de auditoría[\s\S]*?ipAddress\n\s*}\);\n/g);
         removeFromFile(resolversPath, /\s*\/\/ Registrar intento fallido de login[\s\S]*?ipAddress\n\s*}\);\n/g);
         removeFromFile(resolversPath, /\s*\/\/ Registrar login exitoso[\s\S]*?ipAddress\n\s*}\);\n/g);
         removeFromFile(resolversPath, /\s*\/\/ Registrar logout[\s\S]*?ipAddress\n\s*}\);\n/g);
         removeFromFile(resolversPath, /\s*const ipAddress = context\.req \? .*? 'desconocida';\n/g);
     } else {
-        console.log(`  ➔ ✅ Manteniendo Core Asset: Auditoría.`);
+        console.log(`  ➔ ✅ Manteniendo Core Asset: [CA-012_ModeloAuditoria]`);
     }
 
     // =========================================================================
-    // REGLA 2: REGISTRO ABIERTO (CA-007)
+    // REGLA 2: REGISTRO ABIERTO (CA-007) - Punto de Variabilidad
     // =========================================================================
-    if (!features.registroAbierto) {
-        console.log(`  ➔ ✂️ Poda detectada: Registro Cerrado. Eliminando pantallas de frontend...`);
+    if (!assets['CA-007_RegistroAbierto']) {
+        console.log(`  ➔ ✂️  Poda detectada: [CA-007_RegistroAbierto] cerrado. Eliminando pantallas de frontend...`);
         
-        // 1. Eliminar toda la carpeta de la página de registro
+        // 1. Eliminar carpeta del frontend
         const registroPath = path.join(destFrontend, 'src', 'app', 'pages', 'registro');
         if (fs.existsSync(registroPath)) {
             fs.rmSync(registroPath, { recursive: true, force: true });
@@ -116,7 +132,7 @@ try {
         const routesPath = path.join(destFrontend, 'src', 'app', 'app.routes.ts');
         removeFromFile(routesPath, /,\n\s*{\n\s*path: 'registro',[\s\S]*?}/g);
     } else {
-        console.log(`  ➔ ✅ Manteniendo Core Asset: Componente de Registro Abierto.`);
+        console.log(`  ➔ ✅ Manteniendo Core Asset: [CA-007_RegistroAbierto]`);
     }
 
     console.log(`\n⚙️  3. Generando configuración de entorno base...`);
@@ -131,7 +147,7 @@ PORT=${config.configuracion_nuevo_proyecto.entorno.puerto_backend}
     fs.writeFileSync(path.join(destBackend, '.env'), envContent);
     console.log(`✅ Archivo .env inyectado.`);
 
-    console.log(`\n🎉 ¡PROYECTO ENSAMBLADO Y PODADO CON ÉXITO!`);
+    console.log(`\n🎉 ¡PROYECTO ENSAMBLADO CON ÉXITO!`);
     console.log(`========================================================`);
     console.log(`Siguientes pasos:`);
     console.log(`1. cd ../${projectName}/backend`);
