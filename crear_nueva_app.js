@@ -150,9 +150,14 @@ PORT=${config.configuracion_nuevo_proyecto.entorno.puerto_backend}
     console.log(`\n🎉 ¡PROYECTO ENSAMBLADO CON ÉXITO!`);
     console.log(`========================================================`);
     console.log(`Siguientes pasos:`);
+    console.log(`-- Para el Backend --`);
     console.log(`1. cd ../${projectName}/backend`);
     console.log(`2. npm install`);
     console.log(`3. npm run dev`);
+    console.log(`\n-- Para el Frontend (En otra terminal) --`);
+    console.log(`1. cd ../${projectName}/frontend`);
+    console.log(`2. npm install`);
+    console.log(`3. ng serve`);
     console.log(`\n¡Gracias por usar la Fábrica de Software Académico!\n`);
 
 } catch (err) {
