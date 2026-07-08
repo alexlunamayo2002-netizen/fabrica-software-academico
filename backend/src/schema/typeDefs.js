@@ -41,6 +41,13 @@ const typeDefs = `#graphql
     updatedAt: String!
   }
 
+  type Inscripcion {
+    id: ID!
+    estudiante: Usuario!
+    materia: Materia!
+    fechaInscripcion: String!
+  }
+
   type Query {
     usuarios: [Usuario!]!
     usuario(id: ID!): Usuario
@@ -51,6 +58,9 @@ const typeDefs = `#graphql
     auditoriaByAccion(accion: String!, limit: Int): [Auditoria!]!
     materias: [Materia!]!
     materia(id: ID!): Materia
+    inscripciones: [Inscripcion!]!
+    inscripcionesPorEstudiante(estudianteId: ID!): [Inscripcion!]!
+    inscripcionesPorMateria(materiaId: ID!): [Inscripcion!]!
   }
 
   type Mutation {
@@ -60,6 +70,8 @@ const typeDefs = `#graphql
     crearMateria(codigo: String!, nombre: String!, creditos: Int!, descripcion: String): Materia!
     actualizarMateria(id: ID!, codigo: String, nombre: String, creditos: Int, descripcion: String): Materia!
     eliminarMateria(id: ID!): Boolean!
+    inscribir(estudianteId: ID!, materiaId: ID!): Inscripcion!
+    desinscribir(estudianteId: ID!, materiaId: ID!): Boolean!
   }
 `;
 
