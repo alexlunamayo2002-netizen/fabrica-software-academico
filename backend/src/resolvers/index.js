@@ -53,6 +53,20 @@ const resolvers = {
     usuario: (_, { id }) => Usuario.findById(id),
     roles: () => Role.findAll(),
 
+    stats: async (_, __, context) => {
+      if (!context.user) throw new Error('No autenticado');
+      const [usuarios, materias, inscripciones] = await Promise.all([
+        client.query('SELECT COUNT(*) FROM usuarios'),
+        client.query('SELECT COUNT(*) FROM materias'),
+        client.query('SELECT COUNT(*) FROM inscripciones'),
+      ]);
+      return {
+        totalUsuarios:      parseInt(usuarios.rows[0].count),
+        totalMaterias:      parseInt(materias.rows[0].count),
+        totalInscripciones: parseInt(inscripciones.rows[0].count),
+      };
+    },
+
     // Queries de materias
     materias: () => Materia.findAll(),
     materia: (_, { id }) => Materia.findById(id),

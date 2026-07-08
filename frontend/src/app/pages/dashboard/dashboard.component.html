@@ -29,9 +29,9 @@
       <div class="modules-grid">
         <!-- ADMIN MODULES -->
         <ng-container *ngIf="user?.rol === Role.ADMIN">
+          <div class="module-card" routerLink="/admin">🛡️ Panel de Administración</div>
           <div class="module-card" routerLink="/materias">📚 Gestión de Materias</div>
           <div class="module-card" routerLink="/inscripciones">🎓 Gestión de Inscripciones</div>
-          <div class="module-card">👥 Gestión de Usuarios</div>
         </ng-container>
 
         <!-- DOCENTE MODULES -->

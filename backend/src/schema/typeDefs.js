@@ -48,6 +48,12 @@ const typeDefs = `#graphql
     fechaInscripcion: String!
   }
 
+  type Stats {
+    totalUsuarios: Int!
+    totalMaterias: Int!
+    totalInscripciones: Int!
+  }
+
   type Query {
     usuarios: [Usuario!]!
     usuario(id: ID!): Usuario
@@ -58,6 +64,7 @@ const typeDefs = `#graphql
     auditoriaByAccion(accion: String!, limit: Int): [Auditoria!]!
     materias: [Materia!]!
     materia(id: ID!): Materia
+    stats: Stats!
     inscripciones: [Inscripcion!]!
     inscripcionesPorEstudiante(estudianteId: ID!): [Inscripcion!]!
     inscripcionesPorMateria(materiaId: ID!): [Inscripcion!]!
