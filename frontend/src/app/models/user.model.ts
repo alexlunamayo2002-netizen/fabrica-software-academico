@@ -16,3 +16,13 @@ export interface AuthPayload {
   token: string;
   usuario: Usuario;
 }
+
+export interface Materia {
+  id: string;
+  codigo: string;
+  nombre: string;
+  creditos: number;
+  descripcion?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}

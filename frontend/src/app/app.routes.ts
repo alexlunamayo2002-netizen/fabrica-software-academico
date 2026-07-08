@@ -15,9 +15,14 @@ export const routes: Routes = [
     path: 'recuperar-password', 
     loadComponent: () => import('./pages/recuperar-password/recuperar-password.component').then(c => c.RecuperarPasswordComponent) 
   },
-  { 
-    path: 'dashboard', 
+  {
+    path: 'dashboard',
     loadComponent: () => import('./pages/dashboard/dashboard.component').then(c => c.DashboardComponent),
+    canActivate: [authGuard]
+  },
+  {
+    path: 'materias',
+    loadComponent: () => import('./pages/materias/materias.component').then(c => c.MateriasComponent),
     canActivate: [authGuard]
   },
   { path: '**', redirectTo: 'login' }
