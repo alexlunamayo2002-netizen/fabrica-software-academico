@@ -31,6 +31,16 @@ const typeDefs = `#graphql
     usuarioEmail: String
   }
 
+  type Materia {
+    id: ID!
+    codigo: String!
+    nombre: String!
+    creditos: Int!
+    descripcion: String
+    createdAt: String!
+    updatedAt: String!
+  }
+
   type Query {
     usuarios: [Usuario!]!
     usuario(id: ID!): Usuario
@@ -39,12 +49,17 @@ const typeDefs = `#graphql
     auditoria(limit: Int, offset: Int): [Auditoria!]!
     auditoriaByUsuario(usuarioId: ID!, limit: Int): [Auditoria!]!
     auditoriaByAccion(accion: String!, limit: Int): [Auditoria!]!
+    materias: [Materia!]!
+    materia(id: ID!): Materia
   }
 
   type Mutation {
     registro(nombre: String!, email: String!, password: String!, rolId: ID!): AuthPayload!
     login(email: String!, password: String!): AuthPayload!
     logout: Boolean!
+    crearMateria(codigo: String!, nombre: String!, creditos: Int!, descripcion: String): Materia!
+    actualizarMateria(id: ID!, codigo: String, nombre: String, creditos: Int, descripcion: String): Materia!
+    eliminarMateria(id: ID!): Boolean!
   }
 `;
 

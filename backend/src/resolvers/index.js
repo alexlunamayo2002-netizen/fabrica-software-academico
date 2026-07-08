@@ -4,8 +4,13 @@ const { client } = require('../config/database');
 const { Role } = require('../models/Role');
 const { Usuario } = require('../models/Usuario');
 const { Auditoria } = require('../models/Auditoria');
+const { Materia } = require('../models/Materia');
 
 const resolvers = {
+  Materia: {
+    createdAt: (parent) => parent.created_at ? new Date(parent.created_at).toISOString() : new Date().toISOString(),
+    updatedAt: (parent) => parent.updated_at ? new Date(parent.updated_at).toISOString() : new Date().toISOString(),
+  },
   Usuario: {
     rol: (parent) => Role.findById(parent.rol_id),
     createdAt: (parent) => parent.created_at ? new Date(parent.created_at).toISOString() : new Date().toISOString(),
@@ -27,6 +32,10 @@ const resolvers = {
     usuarios: () => Usuario.findAll(),
     usuario: (_, { id }) => Usuario.findById(id),
     roles: () => Role.findAll(),
+
+    // Queries de materias
+    materias: () => Materia.findAll(),
+    materia: (_, { id }) => Materia.findById(id),
 
     // Queries de auditoría
     auditoria: async (_, { limit = 50, offset = 0 }, context) => {
@@ -140,6 +149,32 @@ const resolvers = {
         usuario: usuarioReturn
       };
     },
+    // Mutations de materias
+    crearMateria: async (_, { codigo, nombre, creditos, descripcion }, context) => {
+      if (!context.user) throw new Error('No autenticado');
+      const existente = await Materia.findByCodigo(codigo);
+      if (existente) throw new Error(`Ya existe una materia con el código ${codigo}`);
+      return Materia.create({ codigo, nombre, creditos, descripcion });
+    },
+
+    actualizarMateria: async (_, { id, ...campos }, context) => {
+      if (!context.user) throw new Error('No autenticado');
+      const existente = await Materia.findById(id);
+      if (!existente) throw new Error('Materia no encontrada');
+      if (campos.codigo) {
+        const duplicado = await Materia.findByCodigo(campos.codigo);
+        if (duplicado && duplicado.id !== Number(id)) throw new Error(`Ya existe una materia con el código ${campos.codigo}`);
+      }
+      return Materia.update(id, campos);
+    },
+
+    eliminarMateria: async (_, { id }, context) => {
+      if (!context.user) throw new Error('No autenticado');
+      const existente = await Materia.findById(id);
+      if (!existente) throw new Error('Materia no encontrada');
+      return Materia.delete(id);
+    },
+
     logout: async (_, __, context) => {
       if (!context.user) throw new Error('No autenticado');
 
