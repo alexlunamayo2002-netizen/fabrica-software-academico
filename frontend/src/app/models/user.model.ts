@@ -26,3 +26,10 @@ export interface Materia {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export interface Inscripcion {
+  id: string;
+  estudiante: Pick<Usuario, 'id' | 'nombre' | 'email'>;
+  materia: Pick<Materia, 'id' | 'codigo' | 'nombre' | 'creditos'>;
+  fechaInscripcion: string;
+}

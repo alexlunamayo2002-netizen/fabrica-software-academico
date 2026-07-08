@@ -25,5 +25,10 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/materias/materias.component').then(c => c.MateriasComponent),
     canActivate: [authGuard]
   },
+  {
+    path: 'inscripciones',
+    loadComponent: () => import('./pages/inscripciones/inscripciones.component').then(c => c.InscripcionesComponent),
+    canActivate: [authGuard]
+  },
   { path: '**', redirectTo: 'login' }
 ];

@@ -30,22 +30,22 @@
         <!-- ADMIN MODULES -->
         <ng-container *ngIf="user?.rol === Role.ADMIN">
           <div class="module-card" routerLink="/materias">📚 Gestión de Materias</div>
+          <div class="module-card" routerLink="/inscripciones">🎓 Gestión de Inscripciones</div>
           <div class="module-card">👥 Gestión de Usuarios</div>
-          <div class="module-card">⚙️ Configuración del Sistema</div>
         </ng-container>
 
         <!-- DOCENTE MODULES -->
         <ng-container *ngIf="user?.rol === Role.DOCENTE">
           <div class="module-card" routerLink="/materias">📚 Mis Materias</div>
+          <div class="module-card" routerLink="/inscripciones">🎓 Inscripciones</div>
           <div class="module-card">📝 Calificaciones</div>
-          <div class="module-card">🕐 Horarios</div>
         </ng-container>
 
         <!-- ESTUDIANTE MODULES -->
         <ng-container *ngIf="user?.rol === Role.ESTUDIANTE">
           <div class="module-card" routerLink="/materias">📚 Catálogo de Materias</div>
+          <div class="module-card" routerLink="/inscripciones">🎓 Mis Inscripciones</div>
           <div class="module-card">📈 Mi Progreso</div>
-          <div class="module-card">📋 Historial Académico</div>
         </ng-container>
       </div>
     </div>
