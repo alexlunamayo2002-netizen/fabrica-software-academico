@@ -16,7 +16,8 @@
   },
   "dependencies": {
     "pg": "^8.22.0",
-    "jsonwebtoken": "^9.0.3"
+    "jsonwebtoken": "^9.0.3",
+    "bcryptjs": "^3.0.3"
   },
   "keywords": ["fabrica", "core-asset", "graphql", "jwt", "auditoria"],
   "license": "MIT"

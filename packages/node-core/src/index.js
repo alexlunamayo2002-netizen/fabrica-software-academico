@@ -9,11 +9,17 @@ const { createAuditoriaModule, createAuditoriaModel, noopAuditoria } = require('
 const { composeModules, mergeResolvers } = require('./compose');
 const { crearFeatureToggles, cargarConfig } = require('./feature-toggles');
 const { ensureDatabase, ensureBaseTables, ensureAuditoriaTable } = require('./db-schema');
+const { createUsuarioModel, createRoleModel, baseTypeDefs, buildBaseResolvers } = require('./auth-base');
 
 module.exports = {
   // CA-013 · Base de datos
   createDbClient,
   connect,
+  // Auth base (CA-002/009/010/011): modelos, esquema y resolvers de login
+  createUsuarioModel,
+  createRoleModel,
+  baseTypeDefs,
+  buildBaseResolvers,
   // CA-018 · Setup automático de BD (DDL como parte del asset)
   ensureDatabase,
   ensureBaseTables,
