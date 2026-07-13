@@ -1,0 +1,71 @@
+<div class="page-layout">
+  <header class="page-topbar">
+    <div class="brand-left">
+      <div class="logo">FA</div>
+      <h1>Auditoría</h1>
+    </div>
+    <a routerLink="/dashboard" class="btn btn-secondary btn-sm">← Volver al panel</a>
+  </header>
+
+  <main class="page-content">
+    <div class="page-header">
+      <div>
+        <h2>Registro de Auditoría</h2>
+        <p>Eventos del sistema registrados por el Core Asset CA-012.</p>
+      </div>
+      <button class="btn btn-secondary" (click)="cargar()">⟳ Actualizar</button>
+    </div>
+
+    <div class="alert-error" *ngIf="error()">{{ error() }}</div>
+
+    <!-- Filtros por acción -->
+    <div class="card" *ngIf="accionesUnicas().length > 0">
+      <strong style="font-size:0.8rem;color:var(--text-secondary);">FILTRAR POR ACCIÓN:</strong>
+      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.5rem;">
+        <button *ngFor="let a of accionesUnicas()"
+                class="btn btn-sm"
+                [class.btn-primary]="filtroAccion() === a"
+                [class.btn-secondary]="filtroAccion() !== a"
+                (click)="setFiltro(a)">{{ a }}</button>
+      </div>
+    </div>
+
+    <!-- Tabla de eventos -->
+    <div class="table-wrapper card" style="padding:0;">
+      <div class="empty-state" *ngIf="cargando()">Cargando eventos…</div>
+      <div class="empty-state" *ngIf="!cargando() && eventosFiltrados().length === 0">
+        No hay eventos de auditoría registrados.
+      </div>
+      <table class="data-table" *ngIf="!cargando() && eventosFiltrados().length > 0">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Acción</th>
+            <th>Usuario</th>
+            <th>Entidad</th>
+            <th>Detalles</th>
+            <th>IP</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let e of eventosFiltrados()">
+            <td style="white-space:nowrap;">{{ e.fechaHora | date:'short' }}</td>
+            <td>
+              <span class="badge"
+                    [class.activa]="claseAccion(e.accion) === 'ok'"
+                    [class.admin]="claseAccion(e.accion) === 'neutral'"
+                    [style.background]="claseAccion(e.accion) === 'danger' ? '#fef2f2' : null"
+                    [style.color]="claseAccion(e.accion) === 'danger' ? '#dc2626' : null">
+                {{ e.accion }}
+              </span>
+            </td>
+            <td>{{ e.usuarioNombre || '—' }}</td>
+            <td>{{ e.entidad || '—' }}</td>
+            <td>{{ e.detalles || '—' }}</td>
+            <td>{{ e.ipAddress || '—' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>

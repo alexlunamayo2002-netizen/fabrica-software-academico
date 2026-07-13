@@ -12,7 +12,6 @@ const {
   composeModules,
   crearFeatureToggles,
 } = require('@fabrica/node-core');
-const { createAcademicoModule } = require('@fabrica/academico');
 const { typeDefs: baseTypeDefs } = require('./schema/typeDefs');
 const { buildBaseResolvers, Usuario } = require('./resolvers');
 const { connectDB, client } = require('./config/database');
@@ -37,6 +36,9 @@ async function startServer() {
   if (auditoriaOn) modules.push(auditoriaModule);
 
   if (features.isEnabled('CA-016_ModuloMaterias')) {
+    // Require condicional: un producto mínimo (sin CA-016) no instala
+    // @fabrica/academico, así que solo se carga si el toggle está activo.
+    const { createAcademicoModule } = require('@fabrica/academico');
     modules.push(createAcademicoModule({ client, usuarioModel: Usuario, auditoria }));
     console.log('  ✓ Módulo @fabrica/academico (CA-016/CA-017) cargado');
   }

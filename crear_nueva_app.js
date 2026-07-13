@@ -168,6 +168,15 @@ try {
         removeFromFile(routesPath, opts.routeRegex);
     }
 
+    if (!auditoriaOn) {
+        console.log(`  ➔ ✂️  Frontend: podando [CA-012_ModeloAuditoria]`);
+        const auditPage = path.join(destFrontend, 'src', 'app', 'pages', 'auditoria');
+        if (fs.existsSync(auditPage)) fs.rmSync(auditPage, { recursive: true, force: true });
+        removeFromFile(routesPath, /,?\n\s*\/\/ Sprint 2 · CA-012 Auditoría\n\s*{\n[\s\S]*?canActivate: \[authGuard\]\n\s*}/g);
+        // Quitar el acceso rápido a auditoría del panel admin
+        const adminHtml = path.join(destFrontend, 'src', 'app', 'pages', 'admin', 'admin.component.html');
+        removeFromFile(adminHtml, /\s*<a routerLink="\/auditoria"[\s\S]*?<\/a>/g);
+    }
     if (!inscripcionesOn) {
         podarFrontendModulo('CA-017_ModuloInscripciones', {
             page: 'inscripciones',
@@ -419,7 +428,14 @@ ${materiasOn ? '- `@fabrica/academico` — Materias + Inscripciones' : ''}
     // =========================================================
     console.log(`\n🎉 ¡PRODUCTO ENSAMBLADO CON ÉXITO!`);
     console.log(`${'='.repeat(60)}`);
-    console.log(`📂 Ubicación: ${targetDir}`);
+    // Copiar script de CLI add-feature.js
+    const addFeatureTemplatePath = path.join(__dirname, 'add-feature-template.js');
+    if (fs.existsSync(addFeatureTemplatePath)) {
+        console.log('📦 Copiando herramienta CLI (add-feature.js)...');
+        fs.copyFileSync(addFeatureTemplatePath, path.join(scriptsDir, 'add-feature.js'));
+    }
+
+    console.log(`\n🎉 ¡Producto generado exitosamente en ${targetDir}!`);
     console.log(`📦 Librerías: se instalan desde GitHub (no copiadas)`);
     console.log(`🗄️  BD: ejecutar 'node scripts/setup_db.js' para crear tablas`);
     console.log(`\nSiguientes pasos:`);

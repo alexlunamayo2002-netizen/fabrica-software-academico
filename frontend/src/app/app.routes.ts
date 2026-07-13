@@ -33,6 +33,12 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/inscripciones/inscripciones.component').then(c => c.InscripcionesComponent),
     canActivate: [authGuard]
   },
+  // Sprint 2 · CA-012 Auditoría
+  {
+    path: 'auditoria',
+    loadComponent: () => import('./pages/auditoria/auditoria.component').then(c => c.AuditoriaComponent),
+    canActivate: [authGuard]
+  },
   // Sprint 2 · HU-S2.5 Panel de Administración (exclusivo ADMIN)
   {
     path: 'admin',
