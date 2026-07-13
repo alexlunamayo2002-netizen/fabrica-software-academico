@@ -27,22 +27,35 @@ function cargarConfig(startDir = process.cwd()) {
   return null;
 }
 
+// Commonalities: siempre activos aunque el usuario los ponga en false.
+const OBLIGATORIOS = new Set([
+  'CA-001_DesignSystem', 'CA-002_ModeloUsuarioFront', 'CA-003_AuthService',
+  'CA-004_AuthGuard', 'CA-005_RoleGuard', 'CA-006_Login', 'CA-008_Dashboard',
+  'CA-009_EsquemaGraphQLBase', 'CA-010_ResolversGraphQL', 'CA-011_JWTMiddleware',
+  'CA-013_ConfiguracionBD'
+]);
+
+/**
+ * Aplana el bloque core_assets. Soporta dos formatos:
+ *   - Anidado:  { obligatorios: {...}, opcionales: {...} }  (v2.1+)
+ *   - Plano:    { "CA-007...": true, ... }                  (legacy)
+ */
+function flattenAssets(config) {
+  const ca = (config && config.configuracion_nuevo_proyecto &&
+    config.configuracion_nuevo_proyecto.core_assets) || {};
+  if (ca.obligatorios || ca.opcionales) {
+    return { ...(ca.obligatorios || {}), ...(ca.opcionales || {}) };
+  }
+  return ca;
+}
+
 /**
  * Crea un contenedor de feature toggles a partir de la configuración.
  * @param {object} [config] - configuración de la fábrica (opcional; si no
  *   se pasa, se carga desde factory-config.json).
  */
 function crearFeatureToggles(config = cargarConfig()) {
-  const assets = (config && config.configuracion_nuevo_proyecto &&
-    config.configuracion_nuevo_proyecto.core_assets) || {};
-
-  // Commonalities: siempre activos aunque no aparezcan en la config.
-  const OBLIGATORIOS = new Set([
-    'CA-001_DesignSystem', 'CA-002_ModeloUsuarioFront', 'CA-003_AuthService',
-    'CA-004_AuthGuard', 'CA-005_RoleGuard', 'CA-006_Login', 'CA-008_Dashboard',
-    'CA-009_EsquemaGraphQLBase', 'CA-010_ResolversGraphQL', 'CA-011_JWTMiddleware',
-    'CA-013_ConfiguracionBD'
-  ]);
+  const assets = flattenAssets(config);
 
   return {
     /** ¿Está habilitado un Core Asset en este producto? */
