@@ -18,17 +18,16 @@ const targetDir = path.join(__dirname, '..', projectName);
 console.log(`\n🏭 INICIANDO ENSAMBLAJE DE LÍNEA DE PRODUCTO: ${projectName}`);
 console.log(`========================================================`);
 
-// Función para copiar directorios recursivamente
+// Copia recursiva (omite node_modules, .git, .angular, dist)
 function copyRecursiveSync(src, dest) {
     const exists = fs.existsSync(src);
     const stats = exists && fs.statSync(src);
     const isDirectory = exists && stats.isDirectory();
-    
+
     if (isDirectory) {
-        if (src.includes('node_modules') || src.includes('.git') || src.includes('.angular')) return;
-        
+        if (/node_modules|\.git|\.angular|[\\/]dist([\\/]|$)/.test(src)) return;
         fs.mkdirSync(dest, { recursive: true });
-        fs.readdirSync(src).forEach(function(childItemName) {
+        fs.readdirSync(src).forEach(function (childItemName) {
             copyRecursiveSync(path.join(src, childItemName), path.join(dest, childItemName));
         });
     } else {
@@ -36,7 +35,7 @@ function copyRecursiveSync(src, dest) {
     }
 }
 
-// Función auxiliar para borrar bloques de código de archivos
+// Borra bloques de un archivo por regex (para poda de frontend estático)
 function removeFromFile(filePath, regex, replacement = '') {
     if (fs.existsSync(filePath)) {
         let content = fs.readFileSync(filePath, 'utf8');
@@ -51,152 +50,99 @@ try {
         process.exit(1);
     }
 
-    console.log(`\n📦 1. Extrayendo Base de Core Assets...`);
+    console.log(`\n📦 1. Extrayendo Core Assets y librerías @fabrica/*...`);
     fs.mkdirSync(targetDir);
-    
+
     const destFrontend = path.join(targetDir, 'frontend');
     const destBackend = path.join(targetDir, 'backend');
+    const destPackages = path.join(targetDir, 'packages');
 
     copyRecursiveSync(path.join(__dirname, config.fabrica.rutas_core_assets.frontend), destFrontend);
     copyRecursiveSync(path.join(__dirname, config.fabrica.rutas_core_assets.backend), destBackend);
-    
-    console.log(`✅ Código base extraído.`);
+    // Copiar las librerías del monorepo para que el producto las consuma vía npm install
+    copyRecursiveSync(path.join(__dirname, 'packages'), destPackages);
+    console.log(`✅ Código base y librerías extraídos.`);
 
-    console.log(`\n🎛️  2. Verificando Configuración de Core Assets...`);
+    // El producto lleva su propia configuración de la fábrica (feature toggles runtime)
+    fs.writeFileSync(path.join(targetDir, 'factory-config.json'), JSON.stringify(config, null, 2));
+
+    // package.json raíz del producto (NPM Workspaces enlaza @fabrica/* localmente)
+    const rootPkg = {
+        name: projectName.toLowerCase(),
+        version: '1.0.0',
+        private: true,
+        description: `Producto derivado de la Fábrica de Software Académico: ${projectName}`,
+        workspaces: ['packages/*', 'backend', 'frontend'],
+        scripts: {
+            'dev:backend': 'npm run dev --workspace=backend',
+            'start:frontend': 'npm start --workspace=frontend'
+        }
+    };
+    fs.writeFileSync(path.join(targetDir, 'package.json'), JSON.stringify(rootPkg, null, 2));
+    console.log(`✅ Monorepo del producto configurado (NPM Workspaces).`);
+
+    console.log(`\n🎛️  2. Aplicando variabilidad (feature toggles)...`);
     const assets = config.configuracion_nuevo_proyecto.core_assets;
 
-    // Validación de Assets Obligatorios (Commonalities)
+    // Avisos de commonalities obligatorias
     const obligatorios = [
         'CA-001_DesignSystem', 'CA-002_ModeloUsuarioFront', 'CA-003_AuthService',
         'CA-004_AuthGuard', 'CA-005_RoleGuard', 'CA-006_Login', 'CA-008_Dashboard',
-        'CA-009_EsquemaGraphQLBase', 'CA-010_ResolversGraphQL', 'CA-011_JWTMiddleware', 
+        'CA-009_EsquemaGraphQLBase', 'CA-010_ResolversGraphQL', 'CA-011_JWTMiddleware',
         'CA-013_ConfiguracionBD'
     ];
-
     for (const ca of obligatorios) {
-        if (!assets[ca]) {
-            console.log(`  ⚠️  ADVERTENCIA: Has marcado [${ca}] como false, pero es un Core Asset OBLIGATORIO. El sistema lo mantendrá clonado para evitar romper la arquitectura base.`);
+        if (assets[ca] === false) {
+            console.log(`  ⚠️  [${ca}] es OBLIGATORIO (commonality); se mantiene aunque esté en false.`);
         }
     }
 
-    // =========================================================================
-    // REGLA 1: AUDITORÍA (CA-012) - Punto de Variabilidad
-    // =========================================================================
-    if (!assets['CA-012_ModeloAuditoria']) {
-        console.log(`  ➔ ✂️  Poda detectada: [CA-012_ModeloAuditoria] deshabilitada. Eliminando dependencias de código...`);
-        
-        // 1. Borrar archivo del modelo y scripts
-        const auditoriaModelPath = path.join(destBackend, 'src', 'models', 'Auditoria.js');
-        if (fs.existsSync(auditoriaModelPath)) fs.unlinkSync(auditoriaModelPath);
-        
-        const createAuditScript = path.join(destBackend, 'scripts', 'create_audit_table.js');
-        if (fs.existsSync(createAuditScript)) fs.unlinkSync(createAuditScript);
+    // --- BACKEND: variabilidad por composición en runtime ---------------------
+    // El backend (server.js) compone los módulos @fabrica/* según los toggles de
+    // factory-config.json. NO se poda código: un asset desactivado simplemente no
+    // se carga. Esto cubre CA-012 (Auditoría), CA-016 (Materias) y CA-017.
+    const estadoBackend = (ca) => (assets[ca] !== false ? '✅ activo' : '➔ ✂️ inactivo (no se carga)');
+    console.log(`  Backend · CA-012 Auditoría:     ${estadoBackend('CA-012_ModeloAuditoria')}`);
+    console.log(`  Backend · CA-016 Materias:      ${estadoBackend('CA-016_ModuloMaterias')}`);
+    console.log(`  Backend · CA-017 Inscripciones: ${estadoBackend('CA-017_ModuloInscripciones')}`);
 
-        const migrateAuditScript = path.join(destBackend, 'scripts', 'migrate_auditoria.js');
-        if (fs.existsSync(migrateAuditScript)) fs.unlinkSync(migrateAuditScript);
+    // --- FRONTEND: poda estática (Angular necesita eliminar rutas/componentes) -
+    const routesPath = path.join(destFrontend, 'src', 'app', 'app.routes.ts');
 
-        // 2. Limpiar GraphQL Schema
-        const typeDefsPath = path.join(destBackend, 'src', 'schema', 'typeDefs.js');
-        removeFromFile(typeDefsPath, /type Auditoria {[\s\S]*?}\n\n/g);
-        removeFromFile(typeDefsPath, /\s*auditoria\(.*?\): \[Auditoria!\]!\n/g);
-        removeFromFile(typeDefsPath, /\s*auditoriaByUsuario\(.*?\): \[Auditoria!\]!\n/g);
-        removeFromFile(typeDefsPath, /\s*auditoriaByAccion\(.*?\): \[Auditoria!\]!\n/g);
-        
-        // 3. Limpiar Resolvers
-        const resolversPath = path.join(destBackend, 'src', 'resolvers', 'index.js');
-        removeFromFile(resolversPath, /const { Auditoria } = require\('\.\.\/models\/Auditoria'\);\n/g);
-        // Quitar el field-resolver de tipo Auditoria (anclado a su último campo).
-        removeFromFile(resolversPath, /\s*Auditoria: {[\s\S]*?usuarioEmail:[^\n]*\n\s*},/g);
-        // Anclar el fin del bloque a la última query (findByAccion). Un `[\s\S]*?},`
-        // terminaba prematuramente en el `},` de la destructuración de parámetros.
-        removeFromFile(resolversPath, /\s*\/\/ Queries de auditoría[\s\S]*?return Auditoria\.findByAccion\([^)]*\);\s*\n\s*},/g, '');
-        // Quitar llamadas al método registrar() dentro de login/logout/registro
-        removeFromFile(resolversPath, /\s*\/\/ 4\. Registrar evento de auditoría[\s\S]*?ipAddress\n\s*}\);/g);
-        removeFromFile(resolversPath, /\s*\/\/ Registrar intento fallido de login[\s\S]*?ipAddress\n\s*}\);/g);
-        removeFromFile(resolversPath, /\s*\/\/ Registrar login exitoso[\s\S]*?ipAddress\n\s*}\);/g);
-        removeFromFile(resolversPath, /\s*\/\/ Registrar logout[\s\S]*?ipAddress\n\s*}\);/g);
-        removeFromFile(resolversPath, /\s*const ipAddress = context\.req \? .*? 'desconocida';\n/g);
-    } else {
-        console.log(`  ➔ ✅ Manteniendo Core Asset: [CA-012_ModeloAuditoria]`);
-    }
-
-    // =========================================================================
-    // REGLA 2: REGISTRO ABIERTO (CA-007) - Punto de Variabilidad
-    // =========================================================================
-    if (!assets['CA-007_RegistroAbierto']) {
-        console.log(`  ➔ ✂️  Poda detectada: [CA-007_RegistroAbierto] cerrado. Eliminando pantallas de frontend...`);
-        
-        // 1. Eliminar carpeta del frontend
+    // CA-007 · Registro abierto
+    if (assets['CA-007_RegistroAbierto'] === false) {
+        console.log(`  ➔ ✂️  Frontend: podando [CA-007_RegistroAbierto]`);
         const registroPath = path.join(destFrontend, 'src', 'app', 'pages', 'registro');
-        if (fs.existsSync(registroPath)) {
-            fs.rmSync(registroPath, { recursive: true, force: true });
-        }
-        
-        // 2. Limpiar ruta en app.routes.ts
-        const routesPath = path.join(destFrontend, 'src', 'app', 'app.routes.ts');
+        if (fs.existsSync(registroPath)) fs.rmSync(registroPath, { recursive: true, force: true });
         removeFromFile(routesPath, /,\n\s*{\n\s*path: 'registro',[\s\S]*?}/g);
-    } else {
-        console.log(`  ➔ ✅ Manteniendo Core Asset: [CA-007_RegistroAbierto]`);
     }
 
-    // =========================================================================
-    // REGLA 3 y 4: MÓDULOS ACADÉMICOS (CA-016 Materias / CA-017 Inscripciones)
-    //   Puntos de Variabilidad basados en MARCADORES en el código:
-    //     # >>>CA-016>>>  ...  # <<<CA-016<<<   (GraphQL)
-    //     // >>>CA-016>>> ...  // <<<CA-016<<<  (JS)
-    //   Podar entre marcadores es robusto: no depende de la forma del código.
-    //   CA-017 depende de CA-016 (si se desactiva Materias, cae Inscripciones).
-    // =========================================================================
+    // Poda de un módulo académico en el frontend (página + servicio + ruta)
     const materiasOn = assets['CA-016_ModuloMaterias'] !== false;
     const inscripcionesOn = materiasOn && assets['CA-017_ModuloInscripciones'] !== false;
 
-    // Elimina cualquier bloque delimitado por marcadores >>>CA-xxx>>> ... <<<CA-xxx<<<
-    // (soporta comentarios GraphQL `#` y JavaScript `//`).
-    function podarMarcadores(filePath, ca) {
-        const re = new RegExp(`[ \\t]*(#|//)\\s*>>>${ca}>>>[\\s\\S]*?<<<${ca}<<<[^\\n]*\\n`, 'g');
-        removeFromFile(filePath, re);
-    }
-
-    const resolversPath = path.join(destBackend, 'src', 'resolvers', 'index.js');
-    const typeDefsPath = path.join(destBackend, 'src', 'schema', 'typeDefs.js');
-    const routesPath = path.join(destFrontend, 'src', 'app', 'app.routes.ts');
-
-    function podarModuloAcademico(ca, nombre, opts) {
-        console.log(`  ➔ ✂️  Poda detectada: [${ca}_Modulo${nombre}] deshabilitado.`);
-        podarMarcadores(resolversPath, ca);
-        podarMarcadores(typeDefsPath, ca);
-        // Modelo backend
-        const model = path.join(destBackend, 'src', 'models', `${opts.model}.js`);
-        if (fs.existsSync(model)) fs.unlinkSync(model);
-        // Página y servicio frontend
+    function podarFrontendModulo(ca, opts) {
+        console.log(`  ➔ ✂️  Frontend: podando [${ca}]`);
         const page = path.join(destFrontend, 'src', 'app', 'pages', opts.page);
         if (fs.existsSync(page)) fs.rmSync(page, { recursive: true, force: true });
         const service = path.join(destFrontend, 'src', 'app', 'services', opts.service);
         if (fs.existsSync(service)) fs.unlinkSync(service);
-        // Ruta Angular (bloque delimitado por su comentario "Sprint 2 · CA-xxx")
         removeFromFile(routesPath, opts.routeRegex);
     }
 
     if (!inscripcionesOn) {
-        podarModuloAcademico('CA-017', 'Inscripciones', {
-            model: 'Inscripcion',
+        podarFrontendModulo('CA-017_ModuloInscripciones', {
             page: 'inscripciones',
             service: 'inscripcion.service.ts',
             routeRegex: /,\n\s*\/\/ Sprint 2 · CA-017 Inscripciones\n\s*{\n[\s\S]*?canActivate: \[authGuard\]\n\s*}/g
         });
-    } else {
-        console.log(`  ➔ ✅ Manteniendo Core Asset: [CA-017_ModuloInscripciones]`);
     }
-
     if (!materiasOn) {
-        podarModuloAcademico('CA-016', 'Materias', {
-            model: 'Materia',
+        podarFrontendModulo('CA-016_ModuloMaterias', {
             page: 'materias',
             service: 'materia.service.ts',
             routeRegex: /,\n\s*\/\/ Sprint 2 · CA-016 Materias\n\s*{\n[\s\S]*?canActivate: \[authGuard\]\n\s*}/g
         });
-    } else {
-        console.log(`  ➔ ✅ Manteniendo Core Asset: [CA-016_ModuloMaterias]`);
     }
 
     console.log(`\n⚙️  3. Generando configuración de entorno base...`);
@@ -207,6 +153,7 @@ DB_USER=root
 DB_PASSWORD=secret
 JWT_SECRET=super_secreto_generado_en_fabrica
 PORT=${config.configuracion_nuevo_proyecto.entorno.puerto_backend}
+DB_SSL=true
 `;
     fs.writeFileSync(path.join(destBackend, '.env'), envContent);
     console.log(`✅ Archivo .env inyectado.`);
@@ -214,9 +161,10 @@ PORT=${config.configuracion_nuevo_proyecto.entorno.puerto_backend}
     console.log(`\n🎉 ¡PROYECTO ENSAMBLADO CON ÉXITO!`);
     console.log(`========================================================`);
     console.log(`Siguientes pasos:`);
-    console.log(`1. cd ../${projectName}/backend`);
-    console.log(`2. npm install`);
-    console.log(`3. npm run dev`);
+    console.log(`1. cd ../${projectName}`);
+    console.log(`2. npm install            # enlaza las librerías @fabrica/*`);
+    console.log(`3. Configura backend/.env con tus credenciales de BD`);
+    console.log(`4. npm run dev:backend    # y en otra terminal: npm run start:frontend`);
     console.log(`\n¡Gracias por usar la Fábrica de Software Académico!\n`);
 
 } catch (err) {

@@ -1,23 +1,29 @@
 // ============================================================
 // @fabrica/node-core · Punto de entrada
-// Re-exporta los Core Assets de backend reutilizables por los
-// productos derivados de la Línea de Productos de Software.
+// Core Assets de backend reutilizables por los productos derivados
+// de la Línea de Productos de Software (composición por librerías).
 // ============================================================
+const { createDbClient, connect } = require('./db');
+const { verifyToken, getIp } = require('./auth');
+const { createAuditoriaModule, createAuditoriaModel, noopAuditoria } = require('./auditoria');
+const { composeModules, mergeResolvers } = require('./compose');
 const { crearFeatureToggles, cargarConfig } = require('./feature-toggles');
 
 module.exports = {
-  // CA · Motor de variabilidad (HU-S2.7)
+  // CA-013 · Base de datos
+  createDbClient,
+  connect,
+  // CA-011 · JWT
+  verifyToken,
+  getIp,
+  // CA-012 · Auditoría (módulo componible)
+  createAuditoriaModule,
+  createAuditoriaModel,
+  noopAuditoria,
+  // Composición de módulos GraphQL
+  composeModules,
+  mergeResolvers,
+  // Variabilidad (feature toggles)
   crearFeatureToggles,
   cargarConfig,
-
-  // Catálogo declarativo de Core Assets de backend expuestos por el paquete.
-  // Los assets viven en el core (backend/src) y se consumen vía este índice;
-  // los productos derivados los importan en lugar de clonar carpetas (HU-S2.7).
-  coreAssets: {
-    'CA-009_EsquemaGraphQLBase': 'schema/typeDefs.js',
-    'CA-010_ResolversGraphQL': 'resolvers/index.js',
-    'CA-011_JWTMiddleware': 'middleware/auth.js',
-    'CA-012_ModeloAuditoria': 'models/Auditoria.js',
-    'CA-013_ConfiguracionBD': 'config/database.js'
-  }
 };

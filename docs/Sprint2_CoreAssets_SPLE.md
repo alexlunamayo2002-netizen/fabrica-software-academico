@@ -70,38 +70,57 @@ fabrica-software-academico/
 └── crear_nueva_app.js    # generador de productos derivados
 ```
 
-| Paquete | Core Assets | Rol |
-|---------|-------------|-----|
-| `@fabrica/design-system` | CA-001 | Tokens de diseño y estilos base |
-| `@fabrica/angular-auth` | CA-002 … CA-007 | Autenticación/Autorización (Angular) |
-| `@fabrica/node-core` | CA-009 … CA-013 | Base GraphQL, JWT, BD, Auditoría, **feature toggles** |
-| `@fabrica/academico` | CA-016, CA-017 | Dominio académico |
+| Paquete | Core Assets | Rol | Código real |
+|---------|-------------|-----|-------------|
+| `@fabrica/design-system` | CA-001 | Tokens de diseño y estilos base | tokens.json |
+| `@fabrica/angular-auth` | CA-002 … CA-007 | Autenticación/Autorización (Angular) | referencia |
+| `@fabrica/node-core` | CA-009 … CA-013 | BD, JWT, Auditoría, composición, **feature toggles** | ✅ importable |
+| `@fabrica/academico` | CA-016, CA-017 | Dominio académico (modelos + typeDefs + resolvers) | ✅ importable |
+
+### Composición del backend por librerías (HU-S2.7)
+
+El `backend/src/server.js` es un **composition root**: no contiene la lógica de los
+módulos, sino que los **importa desde las librerías** y los ensambla según los feature
+toggles. Las librerías usan **inyección de dependencias** (reciben el cliente de BD, el
+modelo de usuario y la auditoría), de modo que son reutilizables por cualquier producto.
+
+```js
+const { createAuditoriaModule, createAcademicoModule,
+        composeModules, crearFeatureToggles } = require('@fabrica/node-core');
+const features = crearFeatureToggles();
+
+const modules = [ base ];
+if (features.isEnabled('CA-012_ModeloAuditoria')) modules.push(createAuditoriaModule({ client }));
+if (features.isEnabled('CA-016_ModuloMaterias'))  modules.push(createAcademicoModule({ client, usuarioModel, auditoria }));
+
+const { typeDefs, resolvers } = composeModules(modules);  // → ApolloServer
+```
+
+Los tipos GraphQL de cada librería usan `extend type Query/Mutation`, de modo que se
+integran con el esquema base sin colisiones.
 
 ---
 
 ## 4. Variabilidad (Feature Toggles) — HU-S2.7
 
-La variabilidad se expresa en **dos niveles**:
+La variabilidad se expresa en **tres niveles**:
 
 1. **Configuración declarativa** (`factory-config.json`): cada producto activa o
    desactiva Core Assets opcionales.
-2. **Poda en ensamblaje** (`crear_nueva_app.js`): el generador elimina del producto
-   derivado el código de los assets desactivados, usando **marcadores** en el código:
 
-   ```
-   # >>>CA-016>>>   ...bloque GraphQL...   # <<<CA-016<<<
-   // >>>CA-017>>>  ...bloque JS...        // <<<CA-017<<<
-   ```
-
-   Podar entre marcadores es robusto: no depende de la forma exacta del código.
-
-3. **Motor en tiempo de ejecución** (`@fabrica/node-core/feature-toggles`):
+2. **Composición en runtime — Backend** (`@fabrica/node-core/feature-toggles`): el
+   backend carga o no cada módulo (`@fabrica/academico`, auditoría) según el toggle.
+   Un asset desactivado **no se importa**; no hay código muerto que podar.
 
    ```js
-   const { crearFeatureToggles } = require('@fabrica/node-core/feature-toggles');
-   const features = crearFeatureToggles();      // lee factory-config.json
-   features.isEnabled('CA-016_ModuloMaterias'); // true / false
+   const { crearFeatureToggles } = require('@fabrica/node-core');
+   const features = crearFeatureToggles();       // lee factory-config.json
+   features.isEnabled('CA-016_ModuloMaterias');  // true / false
    ```
+
+3. **Poda estática — Frontend** (`crear_nueva_app.js`): Angular compila rutas y
+   componentes de forma estática, así que el generador elimina del producto las páginas,
+   servicios y rutas de los módulos desactivados.
 
 ### Commonalities vs. Variabilidades
 

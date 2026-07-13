@@ -1,26 +1,29 @@
 // ============================================================
-// @fabrica/academico · Punto de entrada
-// Core Assets del dominio académico (Sprint 2).
+// @fabrica/academico · Módulo componible del dominio académico
 //   CA-016 Materias  ·  CA-017 Inscripciones
-//
-// Los modelos, typeDefs y resolvers viven en backend/src y se
-// componen en el servidor GraphQL. Este índice documenta el
-// contrato del paquete y sus dependencias declarativas.
 // ============================================================
-module.exports = {
-  coreAssets: {
-    'CA-016_ModuloMaterias': {
-      modelo: 'models/Materia.js',
-      typeDefs: 'schema/typeDefs.js#Materia',
-      resolvers: 'resolvers/index.js#Materia',
-      tabla: 'materias'
-    },
-    'CA-017_ModuloInscripciones': {
-      modelo: 'models/Inscripcion.js',
-      typeDefs: 'schema/typeDefs.js#Inscripcion',
-      resolvers: 'resolvers/index.js#Inscripcion',
-      tabla: 'inscripciones',
-      dependeDe: ['CA-016_ModuloMaterias']
-    }
-  }
-};
+const { createMateriaModel } = require('./materia.model');
+const { createInscripcionModel } = require('./inscripcion.model');
+const { academicoTypeDefs } = require('./typeDefs');
+const { buildAcademicoResolvers } = require('./resolvers');
+
+/**
+ * Crea el módulo académico listo para componer con el esquema base.
+ * @param {object} deps
+ * @param {import('pg').Client} deps.client - cliente PostgreSQL
+ * @param {object} deps.usuarioModel - modelo de Usuario (findById) del producto
+ * @param {object} [deps.auditoria] - modelo de auditoría (o no-op si CA-012 off)
+ * @returns {{ typeDefs: string, resolvers: object, models: object }}
+ */
+function createAcademicoModule({ client, usuarioModel, auditoria }) {
+  const Materia = createMateriaModel(client);
+  const Inscripcion = createInscripcionModel(client);
+  const audit = auditoria || { registrar: async () => null };
+  return {
+    typeDefs: academicoTypeDefs,
+    resolvers: buildAcademicoResolvers({ Materia, Inscripcion, Usuario: usuarioModel, auditoria: audit }),
+    models: { Materia, Inscripcion },
+  };
+}
+
+module.exports = { createAcademicoModule };

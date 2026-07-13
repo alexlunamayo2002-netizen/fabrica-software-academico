@@ -1,10 +1,10 @@
 {
   "name": "@fabrica/academico",
   "version": "1.0.0",
-  "description": "Core Assets del dominio académico: CA-016 Módulo de Materias y CA-017 Módulo de Inscripciones (backend GraphQL).",
+  "description": "Core Assets del dominio académico: CA-016 Módulo de Materias y CA-017 Módulo de Inscripciones (backend GraphQL componible).",
   "main": "src/index.js",
   "keywords": ["fabrica", "core-asset", "materias", "inscripciones", "academico"],
-  "peerDependencies": {
+  "dependencies": {
     "@fabrica/node-core": "^2.0.0"
   },
   "license": "MIT"
