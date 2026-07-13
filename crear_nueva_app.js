@@ -55,7 +55,11 @@ try {
         process.exit(1);
     }
 
-    const assets = config.configuracion_nuevo_proyecto.core_assets;
+    // core_assets soporta formato anidado {obligatorios, opcionales} o plano (legacy)
+    const rawAssets = config.configuracion_nuevo_proyecto.core_assets || {};
+    const assets = (rawAssets.obligatorios || rawAssets.opcionales)
+      ? { ...(rawAssets.obligatorios || {}), ...(rawAssets.opcionales || {}) }
+      : rawAssets;
     const materiasOn = assets['CA-016_ModuloMaterias'] !== false;
     const inscripcionesOn = materiasOn && assets['CA-017_ModuloInscripciones'] !== false;
     const auditoriaOn = assets['CA-012_ModeloAuditoria'] !== false;

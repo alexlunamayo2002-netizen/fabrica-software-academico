@@ -179,14 +179,16 @@ async function addFeature(featureName, { isDependency = false } = {}) {
   console.log(`\n📦 Instalando módulo: ${featureName.toUpperCase()} (${feature.configKey})`);
   console.log('─'.repeat(50));
 
-  // 1. Activar el feature toggle
+  // 1. Activar el feature toggle. Soporta core_assets anidado o plano.
   const configPath = path.join(ROOT, 'factory-config.json');
   const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-  const assets = config.configuracion_nuevo_proyecto.core_assets;
-  if (assets[feature.configKey] === true) {
+  const ca = config.configuracion_nuevo_proyecto.core_assets;
+  // Los feature toggles son siempre 'opcionales'; si es plano, se escribe en la raíz.
+  const target = ca.opcionales || ca.obligatorios ? (ca.opcionales = ca.opcionales || {}) : ca;
+  if (target[feature.configKey] === true) {
     console.log(`  ✔️  ${feature.configKey} ya estaba activo`);
   } else {
-    assets[feature.configKey] = true;
+    target[feature.configKey] = true;
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
     console.log(`  ✅ ${feature.configKey} activado en factory-config.json`);
   }
