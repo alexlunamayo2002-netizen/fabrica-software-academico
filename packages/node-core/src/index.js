@@ -8,11 +8,16 @@ const { verifyToken, getIp } = require('./auth');
 const { createAuditoriaModule, createAuditoriaModel, noopAuditoria } = require('./auditoria');
 const { composeModules, mergeResolvers } = require('./compose');
 const { crearFeatureToggles, cargarConfig } = require('./feature-toggles');
+const { ensureDatabase, ensureBaseTables, ensureAuditoriaTable } = require('./db-schema');
 
 module.exports = {
   // CA-013 · Base de datos
   createDbClient,
   connect,
+  // CA-018 · Setup automático de BD (DDL como parte del asset)
+  ensureDatabase,
+  ensureBaseTables,
+  ensureAuditoriaTable,
   // CA-011 · JWT
   verifyToken,
   getIp,

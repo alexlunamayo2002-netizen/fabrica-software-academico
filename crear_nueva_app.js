@@ -202,165 +202,66 @@ try {
 
     const setupDbScript = `// ============================================================
 // SETUP DE BASE DE DATOS — Producto: ${projectName}
-// Crea SOLO las tablas de los Core Assets activos.
-// Uso: node scripts/setup_db.js
+// El DDL de cada Core Asset viaja dentro de su librería @fabrica/*.
+// Crea la database (si no existe) y las tablas de los assets activos.
+// Uso: node scripts/setup_db.js   (también corre solo al arrancar
+// el backend si CA-018_SetupBD_Automatico está activo)
 // ============================================================
 const path = require('path');
-const fs = require('fs');
-// Resolver módulos desde backend/node_modules
 module.paths.unshift(path.join(__dirname, '..', 'backend', 'node_modules'));
-const { Client } = require('pg');
 require('dotenv').config({ path: path.join(__dirname, '..', 'backend', '.env') });
+const {
+  createDbClient, ensureDatabase, ensureBaseTables, ensureAuditoriaTable,
+  crearFeatureToggles, cargarConfig
+} = require('@fabrica/node-core');
 
-// Cargar feature toggles
-const configPath = path.join(__dirname, '..', 'factory-config.json');
-const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-const assets = config.configuracion_nuevo_proyecto.core_assets;
+(async () => {
+  try {
+    const features = crearFeatureToggles(cargarConfig(path.join(__dirname, '..')));
 
-function isEnabled(assetId) {
-    const OBLIGATORIOS = [
-        'CA-001_DesignSystem', 'CA-002_ModeloUsuarioFront', 'CA-003_AuthService',
-        'CA-004_AuthGuard', 'CA-005_RoleGuard', 'CA-006_Login', 'CA-008_Dashboard',
-        'CA-009_EsquemaGraphQLBase', 'CA-010_ResolversGraphQL', 'CA-011_JWTMiddleware',
-        'CA-013_ConfiguracionBD'
-    ];
-    if (OBLIGATORIOS.includes(assetId)) return true;
-    return assets[assetId] === true;
-}
+    console.log('Verificando base de datos...');
+    await ensureDatabase(process.env);
 
-const useSsl = String(process.env.DB_SSL).toLowerCase() !== 'false';
-const client = new Client({
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
-    database: process.env.DB_NAME,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    ssl: useSsl ? { rejectUnauthorized: false } : false,
-});
+    const client = createDbClient(process.env);
+    await client.connect();
+    console.log('✅ Conectado a "' + process.env.DB_NAME + '"\\n');
 
-async function setup() {
-    try {
-        console.log('Conectando a la base de datos...');
-        await client.connect();
-        console.log('✅ Conexión exitosa\\n');
+    await ensureBaseTables(client);
 
-        // ── TABLAS OBLIGATORIAS (Commonalities) ──────────────────
-        console.log('📋 Creando tablas obligatorias...');
-
-        await client.query(\`
-            CREATE TABLE IF NOT EXISTS roles (
-                id SERIAL PRIMARY KEY,
-                nombre VARCHAR(50) UNIQUE NOT NULL
-            );
-            INSERT INTO roles (nombre)
-            VALUES ('ADMIN'), ('DOCENTE'), ('ESTUDIANTE')
-            ON CONFLICT (nombre) DO NOTHING;
-        \`);
-        console.log('  ✅ Tabla roles + datos iniciales');
-
-        await client.query(\`
-            CREATE TABLE IF NOT EXISTS usuarios (
-                id SERIAL PRIMARY KEY,
-                nombre VARCHAR(100) NOT NULL,
-                email VARCHAR(150) UNIQUE NOT NULL,
-                password VARCHAR(255) NOT NULL,
-                rol_id INTEGER NOT NULL REFERENCES roles(id),
-                created_at TIMESTAMP DEFAULT NOW(),
-                updated_at TIMESTAMP DEFAULT NOW()
-            );
-        \`);
-        console.log('  ✅ Tabla usuarios');
-
-        // ── TABLAS OPCIONALES (según Feature Toggles) ────────────
-        console.log('\\n🎛️  Verificando Core Assets opcionales...');
-
-        if (isEnabled('CA-012_ModeloAuditoria')) {
-            await client.query(\`
-                CREATE TABLE IF NOT EXISTS auditoria (
-                    id SERIAL PRIMARY KEY,
-                    usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
-                    accion VARCHAR(255) NOT NULL,
-                    entidad VARCHAR(100),
-                    entidad_id INTEGER,
-                    detalles TEXT,
-                    ip_address VARCHAR(45),
-                    fecha_hora TIMESTAMP NOT NULL DEFAULT NOW()
-                );
-                CREATE INDEX IF NOT EXISTS idx_auditoria_usuario_id ON auditoria(usuario_id);
-                CREATE INDEX IF NOT EXISTS idx_auditoria_fecha_hora ON auditoria(fecha_hora);
-                CREATE INDEX IF NOT EXISTS idx_auditoria_entidad ON auditoria(entidad);
-            \`);
-            console.log('  ✅ CA-012: Tabla auditoria creada');
-        } else {
-            console.log('  ➖ CA-012: Auditoría desactivada, tabla omitida');
-        }
-
-        if (isEnabled('CA-016_ModuloMaterias')) {
-            await client.query(\`
-                CREATE TABLE IF NOT EXISTS materias (
-                    id SERIAL PRIMARY KEY,
-                    codigo VARCHAR(20) UNIQUE NOT NULL,
-                    nombre VARCHAR(150) NOT NULL,
-                    creditos INTEGER NOT NULL DEFAULT 0 CHECK (creditos >= 0),
-                    descripcion TEXT,
-                    docente_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
-                    created_at TIMESTAMP DEFAULT NOW(),
-                    updated_at TIMESTAMP DEFAULT NOW()
-                );
-                CREATE INDEX IF NOT EXISTS idx_materias_codigo ON materias(codigo);
-                CREATE INDEX IF NOT EXISTS idx_materias_docente ON materias(docente_id);
-
-                INSERT INTO materias (codigo, nombre, creditos, descripcion)
-                VALUES
-                    ('MAT-101', 'Cálculo Diferencial', 4, 'Fundamentos de límites, derivadas y aplicaciones.'),
-                    ('INF-201', 'Estructuras de Datos', 5, 'Listas, pilas, colas, árboles y grafos.'),
-                    ('SW-301',  'Ingeniería de Software', 4, 'Líneas de producto de software y fábricas de software.')
-                ON CONFLICT (codigo) DO NOTHING;
-            \`);
-            console.log('  ✅ CA-016: Tabla materias creada + datos de ejemplo');
-        } else {
-            console.log('  ➖ CA-016: Materias desactivada, tabla omitida');
-        }
-
-        if (isEnabled('CA-016_ModuloMaterias') && isEnabled('CA-017_ModuloInscripciones')) {
-            await client.query(\`
-                CREATE TABLE IF NOT EXISTS inscripciones (
-                    id SERIAL PRIMARY KEY,
-                    estudiante_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-                    materia_id INTEGER NOT NULL REFERENCES materias(id) ON DELETE CASCADE,
-                    estado VARCHAR(20) NOT NULL DEFAULT 'ACTIVA',
-                    fecha_inscripcion TIMESTAMP NOT NULL DEFAULT NOW(),
-                    UNIQUE (estudiante_id, materia_id)
-                );
-                CREATE INDEX IF NOT EXISTS idx_inscripciones_estudiante ON inscripciones(estudiante_id);
-                CREATE INDEX IF NOT EXISTS idx_inscripciones_materia ON inscripciones(materia_id);
-            \`);
-            console.log('  ✅ CA-017: Tabla inscripciones creada');
-        } else {
-            console.log('  ➖ CA-017: Inscripciones desactivada, tabla omitida');
-        }
-
-        // ── Resumen ──────────────────────────────────────────────
-        const tables = await client.query(
-            "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename"
-        );
-        console.log('\\n📊 Tablas creadas en la BD:');
-        tables.rows.forEach(r => console.log('   • ' + r.tablename));
-        console.log('\\n🎉 ¡Setup de BD completado para ${projectName}!');
-
-    } catch (error) {
-        console.error('❌ Error en setup de BD:', error.message);
-        process.exit(1);
-    } finally {
-        await client.end();
+    if (features.isEnabled('CA-012_ModeloAuditoria')) {
+      await ensureAuditoriaTable(client);
+    } else {
+      console.log('  ➖ CA-012: Auditoría desactivada, tabla omitida');
     }
-}
 
-setup();
+    if (features.isEnabled('CA-016_ModuloMaterias')) {
+      const { ensureMateriasTable, ensureInscripcionesTable } = require('@fabrica/academico');
+      await ensureMateriasTable(client);
+      if (features.isEnabled('CA-017_ModuloInscripciones')) {
+        await ensureInscripcionesTable(client);
+      } else {
+        console.log('  ➖ CA-017: Inscripciones desactivada, tabla omitida');
+      }
+    } else {
+      console.log('  ➖ CA-016/CA-017: módulo académico desactivado, tablas omitidas');
+    }
+
+    const tables = await client.query(
+      "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename"
+    );
+    console.log('\\n📊 Tablas en la BD:');
+    tables.rows.forEach(r => console.log('   • ' + r.tablename));
+    console.log('\\n🎉 ¡Setup de BD completado para ${projectName}!');
+    await client.end();
+  } catch (error) {
+    console.error('❌ Error en setup de BD:', error.message);
+    process.exit(1);
+  }
+})();
 `;
 
     fs.writeFileSync(path.join(scriptsDir, 'setup_db.js'), setupDbScript);
-    console.log(`  ✅ scripts/setup_db.js generado (crea tablas según toggles)`);
+    console.log(`  ✅ scripts/setup_db.js generado (el DDL vive en las librerías @fabrica/*)`);
 
     // =========================================================
     // PASO 5: Generar factory-config.json y .env

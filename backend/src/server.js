@@ -11,6 +11,9 @@ const {
   noopAuditoria,
   composeModules,
   crearFeatureToggles,
+  ensureDatabase,
+  ensureBaseTables,
+  ensureAuditoriaTable,
 } = require('@fabrica/node-core');
 const { typeDefs: baseTypeDefs } = require('./schema/typeDefs');
 const { buildBaseResolvers, Usuario } = require('./resolvers');
@@ -18,10 +21,28 @@ const { connectDB, client } = require('./config/database');
 require('dotenv').config();
 
 async function startServer() {
-  await connectDB();
-
   // 1. Variabilidad: qué Core Assets están activos en este producto.
   const features = crearFeatureToggles();
+
+  // CA-018 · Setup automático de BD: la database y las tablas de cada
+  // asset activo se crean solas al arrancar (DDL viaja en las librerías).
+  const autoSetup = features.isEnabled('CA-018_SetupBD_Automatico');
+  if (autoSetup) {
+    console.log('🗄️  CA-018: verificando base de datos y tablas...');
+    await ensureDatabase(process.env);
+  }
+
+  await connectDB();
+
+  if (autoSetup) {
+    await ensureBaseTables(client);
+    if (features.isEnabled('CA-012_ModeloAuditoria')) await ensureAuditoriaTable(client);
+    if (features.isEnabled('CA-016_ModuloMaterias')) {
+      const { ensureMateriasTable, ensureInscripcionesTable } = require('@fabrica/academico');
+      await ensureMateriasTable(client);
+      if (features.isEnabled('CA-017_ModuloInscripciones')) await ensureInscripcionesTable(client);
+    }
+  }
 
   // 2. Módulo de Auditoría (CA-012) — real si está activo, no-op si no.
   const auditoriaOn = features.isEnabled('CA-012_ModeloAuditoria');

@@ -29,7 +29,8 @@
       "CA-012_ModeloAuditoria": true,
       "CA-013_ConfiguracionBD": true,
       "CA-016_ModuloMaterias": true,
-      "CA-017_ModuloInscripciones": true
+      "CA-017_ModuloInscripciones": true,
+      "CA-018_SetupBD_Automatico": true
     },
     "entorno": {
       "db_host_template": "tu-host.render.com",

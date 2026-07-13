@@ -234,7 +234,8 @@ async function addFeature(featureName, { isDependency = false } = {}) {
 
   console.log(`\n🎉 ¡Módulo '${featureName}' instalado!`);
   if (!isDependency) {
-    console.log(`   Reinicia el backend (npm run dev) para cargar el módulo.`);
+    console.log(`   Reinicia el backend (npm run dev): cargará el módulo y,`);
+    console.log(`   con CA-018 activo, verificará sus tablas automáticamente.`);
   }
 }
 

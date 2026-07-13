@@ -126,7 +126,23 @@ La variabilidad se expresa en **tres niveles**:
 
 | Commonalities (siempre presentes) | Variabilidades (opcionales) |
 |-----------------------------------|-----------------------------|
-| CA-001, CA-002, CA-003, CA-004, CA-005, CA-006, CA-008, CA-009, CA-010, CA-011, CA-013 | CA-007 (Registro abierto), CA-012 (Auditoría), CA-016 (Materias), CA-017 (Inscripciones) |
+| CA-001, CA-002, CA-003, CA-004, CA-005, CA-006, CA-008, CA-009, CA-010, CA-011, CA-013 | CA-007 (Registro abierto), CA-012 (Auditoría), CA-016 (Materias), CA-017 (Inscripciones), CA-018 (Setup BD automático) |
+
+### CA-018 · La base de datos como Core Asset
+
+El DDL de cada asset **viaja dentro de su librería**: `@fabrica/node-core` exporta
+`ensureDatabase` (crea la database del producto si no existe), `ensureBaseTables`
+(roles/usuarios) y `ensureAuditoriaTable`; `@fabrica/academico` exporta
+`ensureMateriasTable` y `ensureInscripcionesTable`. Todas son idempotentes
+(`CREATE TABLE IF NOT EXISTS`).
+
+Con `CA-018_SetupBD_Automatico: true`, el backend se **auto-provisiona al arrancar**:
+crea la database y las tablas de los assets activos. El flujo incremental queda:
+
+```bash
+node scripts/add-feature.js auditoria   # toggle + frontend desde GitHub
+npm run dev                             # al arrancar crea la tabla auditoria sola
+```
 
 ---
 
