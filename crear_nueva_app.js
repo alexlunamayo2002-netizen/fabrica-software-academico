@@ -270,17 +270,72 @@ const {
 
     fs.writeFileSync(path.join(targetDir, 'factory-config.json'), JSON.stringify(config, null, 2));
 
-    const envContent = `DB_HOST=${config.configuracion_nuevo_proyecto.entorno.db_host_template}
+    // .env: si hay config de BD local en la fábrica, se usa (dev listo de una);
+    // si no, se deja la plantilla remota para producción.
+    const entorno = config.configuracion_nuevo_proyecto.entorno;
+    const local = entorno.db_local;
+    const envContent = local
+      ? `# Configuración LOCAL (generada desde factory-config.entorno.db_local)
+DB_HOST=${local.host}
+DB_PORT=${local.port}
+DB_NAME=bd_${projectName.toLowerCase()}
+DB_USER=${local.user}
+DB_PASSWORD=${local.password}
+JWT_SECRET=secreto_${projectName.toLowerCase()}_${Date.now()}
+PORT=${entorno.puerto_backend}
+DB_SSL=${local.ssl ? 'true' : 'false'}
+`
+      : `DB_HOST=${entorno.db_host_template}
 DB_PORT=5432
 DB_NAME=bd_${projectName.toLowerCase()}
 DB_USER=tu_usuario
 DB_PASSWORD=tu_password
 JWT_SECRET=cambia_este_secreto_${Date.now()}
-PORT=${config.configuracion_nuevo_proyecto.entorno.puerto_backend}
+PORT=${entorno.puerto_backend}
 DB_SSL=true
 `;
     fs.writeFileSync(path.join(destBackend, '.env'), envContent);
-    console.log(`  ✅ factory-config.json y .env generados`);
+
+    // seed_admin.js — crea un usuario ADMIN listo para iniciar sesión.
+    const seedAdminScript = `// ============================================================
+// SEED ADMIN — Producto: ${projectName}
+// Crea un usuario ADMIN para poder iniciar sesión de inmediato.
+// Uso: node scripts/seed_admin.js  [email] [password]
+// ============================================================
+const path = require('path');
+module.paths.unshift(path.join(__dirname, '..', 'backend', 'node_modules'));
+require('dotenv').config({ path: path.join(__dirname, '..', 'backend', '.env') });
+const bcrypt = require('bcryptjs');
+const { createDbClient } = require('@fabrica/node-core');
+
+const email = process.argv[2] || 'admin@admin.edu';
+const password = process.argv[3] || 'admin123';
+
+(async () => {
+  const client = createDbClient(process.env);
+  try {
+    await client.connect();
+    const hash = await bcrypt.hash(password, 10);
+    await client.query(
+      \`INSERT INTO usuarios (nombre, email, password, rol_id)
+       VALUES ($1, $2, $3, 1)
+       ON CONFLICT (email) DO UPDATE SET password = EXCLUDED.password\`,
+      ['Administrador', email, hash]
+    );
+    console.log('✅ Admin listo:');
+    console.log('   Email:    ' + email);
+    console.log('   Password: ' + password);
+  } catch (e) {
+    console.error('❌ Error:', e.message);
+    console.error('   ¿Corriste antes el backend o node scripts/setup_db.js para crear las tablas?');
+    process.exit(1);
+  } finally {
+    await client.end();
+  }
+})();
+`;
+    fs.writeFileSync(path.join(scriptsDir, 'seed_admin.js'), seedAdminScript);
+    console.log(`  ✅ factory-config.json, .env y scripts/seed_admin.js generados`);
 
     // =========================================================
     // PASO 6: Generar README del producto
@@ -298,28 +353,38 @@ Producto derivado de la **Fábrica de Software Académico** (SPLE).
 | CA-017 Inscripciones | ${inscripcionesOn ? '✅' : '❌'} |
 | CA-007 Registro | ${registroOn ? '✅' : '❌'} |
 
-## Inicio rápido
+## Inicio rápido (PowerShell — usa \`;\` no \`&&\`)
 
-\`\`\`bash
-# 1. Instalar dependencias (baja librerías @fabrica/* de GitHub)
-cd backend && npm install
-cd ../frontend && npm install
+El \`.env\` ya viene configurado para tu BD local. Asegúrate de que PostgreSQL
+esté corriendo (si usas Docker: \`docker start fabrica-pg\`).
 
-# 2. Configurar BD (editar backend/.env con tus credenciales)
+\`\`\`powershell
+# 1. Backend: instalar (baja librerías @fabrica/* de GitHub) y arrancar
+cd backend
+npm install
+npm run dev          # crea la BD y las tablas solo (CA-018) y queda escuchando
+\`\`\`
 
-# 3. Crear tablas según los core assets activos
-node scripts/setup_db.js
+\`\`\`powershell
+# 2. Crear un admin y arrancar el frontend (OTRA terminal)
+cd ${projectName}
+node scripts/seed_admin.js               # admin@admin.edu / admin123
+cd frontend
+npm install
+npm start                                # http://localhost:4200
+\`\`\`
 
-# 4. Arrancar backend
-cd backend && npm run dev
+## Añadir un módulo después (auditoría, materias, inscripciones)
 
-# 5. Arrancar frontend (otra terminal)
-cd frontend && npm start
+\`\`\`powershell
+cd ${projectName}
+node scripts/add-feature.js auditoria    # trae el frontend de GitHub + activa el toggle
+# reinicia el backend: la tabla del módulo se crea sola al arrancar
 \`\`\`
 
 ## Librerías @fabrica/* (instaladas desde GitHub)
 
-- \`@fabrica/node-core\` — BD, JWT, Auditoría, Feature Toggles
+- \`@fabrica/node-core\` — BD, JWT, Auditoría, Feature Toggles, setup de BD
 ${materiasOn ? '- `@fabrica/academico` — Materias + Inscripciones' : ''}
 `;
     fs.writeFileSync(path.join(targetDir, 'README.md'), readmeContent);

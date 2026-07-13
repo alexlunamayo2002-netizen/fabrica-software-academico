@@ -34,7 +34,14 @@
     },
     "entorno": {
       "db_host_template": "tu-host.render.com",
-      "puerto_backend": 4000
+      "puerto_backend": 4000,
+      "db_local": {
+        "host": "localhost",
+        "port": 5544,
+        "user": "root",
+        "password": "secret",
+        "ssl": false
+      }
     }
   }
 }
