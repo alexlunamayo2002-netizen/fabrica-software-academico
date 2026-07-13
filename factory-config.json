@@ -1,9 +1,19 @@
 {
   "fabrica": {
-    "version": "1.1",
+    "version": "2.0",
     "rutas_core_assets": {
       "frontend": "./frontend",
-      "backend": "./backend"
+      "backend": "./backend",
+      "packages": "./packages"
+    },
+    "monorepo": {
+      "gestor": "npm workspaces",
+      "paquetes": [
+        "@fabrica/node-core",
+        "@fabrica/academico",
+        "@fabrica/angular-auth",
+        "@fabrica/design-system"
+      ]
     }
   },
   "configuracion_nuevo_proyecto": {
@@ -21,7 +31,21 @@
       "CA-010_ResolversGraphQL": true,
       "CA-011_JWTMiddleware": true,
       "CA-012_ModeloAuditoria": false,
-      "CA-013_ConfiguracionBD": true
+      "CA-013_ConfiguracionBD": true,
+      "CA-016_ModuloMaterias": true,
+      "CA-017_ModuloInscripciones": true
+    },
+    "variabilidad": {
+      "CA-016_ModuloMaterias": {
+        "descripcion": "CRUD de materias académicas vía GraphQL",
+        "libreria": "@fabrica/academico",
+        "activable": true
+      },
+      "CA-017_ModuloInscripciones": {
+        "descripcion": "Inscripción y desinscripción de estudiantes a materias",
+        "libreria": "@fabrica/academico",
+        "activable": true
+      }
     },
     "entorno": {
       "db_host_template": "tu-host.render.com",

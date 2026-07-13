@@ -1,0 +1,7 @@
+{
+  "name": "@fabrica/design-system",
+  "version": "1.0.0",
+  "description": "Design tokens y variables CSS globales del Sistema Académico",
+  "main": "src/index.js",
+  "style": "src/styles/variables.css"
+}

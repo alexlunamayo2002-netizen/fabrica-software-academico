@@ -1,0 +1,11 @@
+{
+  "name": "@fabrica/node-core",
+  "version": "1.0.0",
+  "description": "Core assets: DB, auth, base GraphQL schema y resolvers (SPLE CA-001 a CA-013)",
+  "main": "src/index.js",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.22.0"
+  }
+}

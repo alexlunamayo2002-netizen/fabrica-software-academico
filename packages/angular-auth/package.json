@@ -1,0 +1,11 @@
+{
+  "name": "@fabrica/angular-auth",
+  "version": "1.0.0",
+  "description": "Librería Angular: guards, auth service y login/registro components",
+  "main": "src/index.ts",
+  "peerDependencies": {
+    "@angular/core": ">=19.0.0",
+    "@angular/common": ">=19.0.0",
+    "@angular/router": ">=19.0.0"
+  }
+}

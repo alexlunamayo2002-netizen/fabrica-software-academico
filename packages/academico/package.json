@@ -1,0 +1,9 @@
+{
+  "name": "@fabrica/academico",
+  "version": "1.0.0",
+  "description": "Módulo académico: Materias e Inscripciones (SPLE CA-016, CA-017)",
+  "main": "src/index.js",
+  "dependencies": {
+    "@fabrica/node-core": "*"
+  }
+}
