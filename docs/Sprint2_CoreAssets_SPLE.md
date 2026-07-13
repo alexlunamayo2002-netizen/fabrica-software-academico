@@ -99,6 +99,23 @@ const { typeDefs, resolvers } = composeModules(modules);  // → ApolloServer
 Los tipos GraphQL de cada librería usan `extend type Query/Mutation`, de modo que se
 integran con el esquema base sin colisiones.
 
+### ¿Qué es librería npm y qué se copia? (estado real)
+
+| Parte | Cómo llega al producto |
+|-------|------------------------|
+| Auth base (Usuario/Role, login/registro/logout) | 🟢 **Librería** — `@fabrica/node-core` (auth-base) desde GitHub |
+| BD, JWT, feature-toggles, DDL, auditoría (CA-012) | 🟢 **Librería** — `@fabrica/node-core` desde GitHub |
+| Materias + Inscripciones (CA-016/017) | 🟢 **Librería** — `@fabrica/academico` desde GitHub |
+| **Backend completo del producto** | 🟢 **Un solo `server.js`** que solo ensambla (composition root) |
+| Componentes Angular (login, materias, auditoría…) | 🟡 **Descarga desde GitHub** vía `add-feature.js` |
+
+El **backend es una librería npm pura**: el producto instala `@fabrica/*` con
+`npm install github:…#pkg/node-core` y su `backend/src/` contiene únicamente
+`server.js`. El **frontend** se distribuye por **descarga desde GitHub** (no como
+paquete npm compilado): convertir componentes Angular en librería instalable exige
+`ng-packagr` en un workspace Angular aislado —fuera del monorepo, que hoistea las
+dependencias y rompe el build de la librería— por lo que se dejó como trabajo futuro.
+
 ---
 
 ## 4. Variabilidad (Feature Toggles) — HU-S2.7
