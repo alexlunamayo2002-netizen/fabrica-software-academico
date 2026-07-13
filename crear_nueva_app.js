@@ -40,6 +40,7 @@ function copyRecursiveSync(src, dest) {
 function removeFromFile(filePath, regex, replacement = '') {
     if (fs.existsSync(filePath)) {
         let content = fs.readFileSync(filePath, 'utf8');
+        content = content.replace(/\r\n/g, '\n');
         content = content.replace(regex, replacement);
         fs.writeFileSync(filePath, content);
     }
@@ -53,14 +54,20 @@ try {
 
     console.log(`\n📦 1. Extrayendo Base de Core Assets...`);
     fs.mkdirSync(targetDir);
-    
-    const destFrontend = path.join(targetDir, 'frontend');
-    const destBackend = path.join(targetDir, 'backend');
 
-    copyRecursiveSync(path.join(__dirname, config.fabrica.rutas_core_assets.frontend), destFrontend);
-    copyRecursiveSync(path.join(__dirname, config.fabrica.rutas_core_assets.backend), destBackend);
-    
-    console.log(`✅ Código base extraído.`);
+    const destFrontend  = path.join(targetDir, 'frontend');
+    const destBackend   = path.join(targetDir, 'backend');
+    const destPackages  = path.join(targetDir, 'packages');
+
+    copyRecursiveSync(path.join(__dirname, config.fabrica.rutas_core_assets.frontend),  destFrontend);
+    copyRecursiveSync(path.join(__dirname, config.fabrica.rutas_core_assets.backend),   destBackend);
+    copyRecursiveSync(path.join(__dirname, config.fabrica.rutas_core_assets.packages),  destPackages);
+
+    // Copiar package.json raíz y factory-config.json al nuevo proyecto
+    fs.copyFileSync(path.join(__dirname, 'package.json'),        path.join(targetDir, 'package.json'));
+    fs.copyFileSync(path.join(__dirname, 'factory-config.json'), path.join(targetDir, 'factory-config.json'));
+
+    console.log(`✅ Código base extraído (frontend + backend + packages @fabrica/*)`);
 
     console.log(`\n🎛️  2. Verificando Configuración de Core Assets...`);
     const assets = config.configuracion_nuevo_proyecto.core_assets;
@@ -97,21 +104,26 @@ try {
 
         // 2. Limpiar GraphQL Schema
         const typeDefsPath = path.join(destBackend, 'src', 'schema', 'typeDefs.js');
-        removeFromFile(typeDefsPath, /type Auditoria {[\s\S]*?}\n\n/g);
-        removeFromFile(typeDefsPath, /\s*auditoria\(.*?\): \[Auditoria!\]!\n/g);
-        removeFromFile(typeDefsPath, /\s*auditoriaByUsuario\(.*?\): \[Auditoria!\]!\n/g);
-        removeFromFile(typeDefsPath, /\s*auditoriaByAccion\(.*?\): \[Auditoria!\]!\n/g);
-        
+        removeFromFile(typeDefsPath, /\n *type Auditoria \{[\s\S]*?\}\n/g);
+        removeFromFile(typeDefsPath, /^ *auditoria\(.*?\): \[Auditoria!\]!\n/gm);
+        removeFromFile(typeDefsPath, /^ *auditoriaByUsuario\(.*?\): \[Auditoria!\]!\n/gm);
+        removeFromFile(typeDefsPath, /^ *auditoriaByAccion\(.*?\): \[Auditoria!\]!\n/gm);
+
         // 3. Limpiar Resolvers
         const resolversPath = path.join(destBackend, 'src', 'resolvers', 'index.js');
-        removeFromFile(resolversPath, /const { Auditoria } = require\('\.\.\/models\/Auditoria'\);\n/g);
-        removeFromFile(resolversPath, /\s*\/\/ Queries de auditoría[\s\S]*?auditoriaByAccion[\s\S]*?},/g, '');
+        removeFromFile(resolversPath, /^ *const \{ Auditoria \} = require\('\.\.\/models\/Auditoria'\);\n/gm);
+        removeFromFile(resolversPath, /^ *Auditoria: \{[\s\S]*?\n {2}\},\n/gm);
+        removeFromFile(resolversPath, /\n\n *\/\/ Queries de auditoría[\s\S]*?auditoriaByAccion[\s\S]*?\n {4}\},/g);
         // Quitar llamadas al método registrar() dentro de login/logout/registro
-        removeFromFile(resolversPath, /\s*\/\/ 4\. Registrar evento de auditoría[\s\S]*?ipAddress\n\s*}\);/g);
-        removeFromFile(resolversPath, /\s*\/\/ Registrar intento fallido de login[\s\S]*?ipAddress\n\s*}\);/g);
-        removeFromFile(resolversPath, /\s*\/\/ Registrar login exitoso[\s\S]*?ipAddress\n\s*}\);/g);
-        removeFromFile(resolversPath, /\s*\/\/ Registrar logout[\s\S]*?ipAddress\n\s*}\);/g);
-        removeFromFile(resolversPath, /\s*const ipAddress = context\.req \? .*? 'desconocida';\n/g);
+        removeFromFile(resolversPath, /\n *\/\/ 4\. Registrar evento de auditoría[\s\S]*?ipAddress\n *\}\);/g);
+        removeFromFile(resolversPath, /\n *\/\/ Registrar intento fallido de login[\s\S]*?ipAddress\n *\}\);/g);
+        removeFromFile(resolversPath, /\n *\/\/ 4\. Registrar login exitoso[\s\S]*?ipAddress\n *\}\);/g);
+        removeFromFile(resolversPath, /\n *\/\/ Registrar logout[\s\S]*?ipAddress\n *\}\);/g);
+        removeFromFile(resolversPath, /^ *const ipAddress = context\.req \? .*? 'desconocida';\n/gm);
+
+        // 4. Limpiar schema.sql (tabla auditoria + índices)
+        const schemaPath = path.join(destBackend, 'database', 'schema.sql');
+        removeFromFile(schemaPath, /\n\n-- =+\n-- MÓDULO: AUDITORÍA[\s\S]*$/g);
     } else {
         console.log(`  ➔ ✅ Manteniendo Core Asset: [CA-012_ModeloAuditoria]`);
     }
@@ -130,9 +142,68 @@ try {
         
         // 2. Limpiar ruta en app.routes.ts
         const routesPath = path.join(destFrontend, 'src', 'app', 'app.routes.ts');
-        removeFromFile(routesPath, /,\n\s*{\n\s*path: 'registro',[\s\S]*?}/g);
+        removeFromFile(routesPath, /\n\s*\{[^\n]*\n\s*path:\s*'registro',[\s\S]*?\},/g);
     } else {
         console.log(`  ➔ ✅ Manteniendo Core Asset: [CA-007_RegistroAbierto]`);
+    }
+
+    // =========================================================================
+    // REGLA 3: MÓDULO MATERIAS (CA-016) - Punto de Variabilidad
+    // =========================================================================
+    if (!assets['CA-016_ModuloMaterias']) {
+        console.log(`  ➔ ✂️  Poda detectada: [CA-016_ModuloMaterias] deshabilitada.`);
+
+        // 1. Eliminar paquete @fabrica/academico — solo si CA-017 también está off
+        if (!assets['CA-017_ModuloInscripciones']) {
+            const academicoPath = path.join(destPackages, 'academico');
+            if (fs.existsSync(academicoPath)) {
+                fs.rmSync(academicoPath, { recursive: true, force: true });
+                console.log(`     ✂️  Eliminado packages/academico (ningún CA académico activo)`);
+            }
+        }
+
+        // 2. Marcar CA-016 como false en factory-config.json del nuevo proyecto
+        const destConfig = path.join(targetDir, 'factory-config.json');
+        const destCfgObj = JSON.parse(fs.readFileSync(destConfig, 'utf8'));
+        destCfgObj.configuracion_nuevo_proyecto.core_assets['CA-016_ModuloMaterias'] = false;
+        fs.writeFileSync(destConfig, JSON.stringify(destCfgObj, null, 2));
+
+        // 3. Eliminar página de materias del frontend
+        const materiasPage = path.join(destFrontend, 'src', 'app', 'pages', 'materias');
+        if (fs.existsSync(materiasPage)) fs.rmSync(materiasPage, { recursive: true, force: true });
+
+        // 4. Quitar ruta /materias de app.routes.ts
+        const routesPath = path.join(destFrontend, 'src', 'app', 'app.routes.ts');
+        removeFromFile(routesPath, /\n\s*\{[^\n]*\n\s*path:\s*'materias',[\s\S]*?\n\s*\},/g);
+
+        console.log(`     El assembler excluirá CA-016 automáticamente al arrancar.`);
+    } else {
+        console.log(`  ➔ ✅ Manteniendo Core Asset: [CA-016_ModuloMaterias]`);
+    }
+
+    // =========================================================================
+    // REGLA 4: MÓDULO INSCRIPCIONES (CA-017) - Punto de Variabilidad
+    // =========================================================================
+    if (!assets['CA-017_ModuloInscripciones']) {
+        console.log(`  ➔ ✂️  Poda detectada: [CA-017_ModuloInscripciones] deshabilitada.`);
+
+        // 1. Marcar CA-017 como false en factory-config.json del nuevo proyecto
+        const destConfig = path.join(targetDir, 'factory-config.json');
+        const destCfgObj = JSON.parse(fs.readFileSync(destConfig, 'utf8'));
+        destCfgObj.configuracion_nuevo_proyecto.core_assets['CA-017_ModuloInscripciones'] = false;
+        fs.writeFileSync(destConfig, JSON.stringify(destCfgObj, null, 2));
+
+        // 2. Eliminar página de inscripciones del frontend
+        const inscripcionesPage = path.join(destFrontend, 'src', 'app', 'pages', 'inscripciones');
+        if (fs.existsSync(inscripcionesPage)) fs.rmSync(inscripcionesPage, { recursive: true, force: true });
+
+        // 3. Quitar ruta /inscripciones de app.routes.ts
+        const routesPath = path.join(destFrontend, 'src', 'app', 'app.routes.ts');
+        removeFromFile(routesPath, /\n\s*\{[^\n]*\n\s*path:\s*'inscripciones',[\s\S]*?\n\s*\},/g);
+
+        console.log(`     El assembler excluirá CA-017 automáticamente al arrancar.`);
+    } else {
+        console.log(`  ➔ ✅ Manteniendo Core Asset: [CA-017_ModuloInscripciones]`);
     }
 
     console.log(`\n⚙️  3. Generando configuración de entorno base...`);

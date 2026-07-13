@@ -2,30 +2,12 @@ require('dotenv').config();
 
 const { ApolloServer } = require('@apollo/server');
 const { startStandaloneServer } = require('@apollo/server/standalone');
+const { connectDB, verifyToken } = require('@fabrica/node-core');
 
-// Composición SPLE: importar Core Assets desde librerías @fabrica/*
-const {
-  connectDB,
-  verifyToken,
-  typeDefs: coreDefs,
-  resolvers: coreResolvers,
-} = require('@fabrica/node-core');
-
-const {
-  typeDefs: academicoDefs,
-  resolvers: academicoResolvers,
-} = require('@fabrica/academico');
-
-// Merge typeDefs (Apollo acepta array de SDL strings)
-const typeDefs = [coreDefs, academicoDefs];
-
-// Merge resolvers: type resolvers + Query + Mutation
-const resolvers = {
-  ...coreResolvers,
-  ...academicoResolvers,
-  Query:    { ...coreResolvers.Query,    ...academicoResolvers.Query },
-  Mutation: { ...coreResolvers.Mutation, ...academicoResolvers.Mutation },
-};
+// Composición SPLE: el assembler lee factory-config.json y carga
+// solo los módulos habilitados vía feature flags (HU-S2.7)
+console.log('\n[SPLE] Ensamblando servidor según factory-config.json...');
+const { typeDefs, resolvers } = require('./assembler');
 
 async function startServer() {
   await connectDB();
