@@ -6,6 +6,7 @@ const { createMateriaModel } = require('./materia.model');
 const { createInscripcionModel } = require('./inscripcion.model');
 const { academicoTypeDefs } = require('./typeDefs');
 const { buildAcademicoResolvers } = require('./resolvers');
+const { ensureMateriasTable, ensureInscripcionesTable } = require('./db-schema');
 
 /**
  * Crea el módulo académico listo para componer con el esquema base.
@@ -26,4 +27,4 @@ function createAcademicoModule({ client, usuarioModel, auditoria }) {
   };
 }
 
-module.exports = { createAcademicoModule };
+module.exports = { createAcademicoModule, ensureMateriasTable, ensureInscripcionesTable };
