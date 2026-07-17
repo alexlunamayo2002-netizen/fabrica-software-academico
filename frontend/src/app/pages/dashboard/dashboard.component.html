@@ -30,21 +30,26 @@
         <!-- ADMIN MODULES -->
         <ng-container *ngIf="user?.rol === Role.ADMIN">
           <a routerLink="/admin" class="module-card">🛠️ Panel de Administración</a>
-          <a routerLink="/materias" class="module-card">📚 Gestión de Materias</a>
-          <a routerLink="/inscripciones" class="module-card">📝 Gestión de Inscripciones</a>
+          <a *ngIf="hasMaterias()" routerLink="/materias" class="module-card">📚 Gestión de Materias</a>
+          <a *ngIf="hasInscripciones()" routerLink="/inscripciones" class="module-card">📝 Gestión de Inscripciones</a>
+          <a *ngIf="hasAuditoria()" routerLink="/auditoria" class="module-card">🔍 Registro de Auditoría</a>
         </ng-container>
 
         <!-- DOCENTE MODULES -->
         <ng-container *ngIf="user?.rol === Role.DOCENTE">
-          <a routerLink="/materias" class="module-card">📚 Mis Materias</a>
-          <a routerLink="/inscripciones" class="module-card">📝 Inscripciones</a>
+          <a *ngIf="hasMaterias()" routerLink="/materias" class="module-card">📚 Mis Materias</a>
+          <a *ngIf="hasInscripciones()" routerLink="/inscripciones" class="module-card">📝 Inscripciones</a>
         </ng-container>
 
         <!-- ESTUDIANTE MODULES -->
         <ng-container *ngIf="user?.rol === Role.ESTUDIANTE">
-          <a routerLink="/materias" class="module-card">📚 Catálogo de Materias</a>
-          <a routerLink="/inscripciones" class="module-card">📝 Mis Inscripciones</a>
+          <a *ngIf="hasMaterias()" routerLink="/materias" class="module-card">📚 Catálogo de Materias</a>
+          <a *ngIf="hasInscripciones()" routerLink="/inscripciones" class="module-card">📝 Mis Inscripciones</a>
         </ng-container>
+
+        <div class="empty-state" *ngIf="user?.rol !== Role.ADMIN && !hasMaterias() && !hasInscripciones()">
+          No hay módulos adicionales activos en este producto.
+        </div>
       </div>
     </div>
   </main>

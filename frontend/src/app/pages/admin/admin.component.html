@@ -23,11 +23,11 @@
         <div class="value">{{ usuarios().length }}</div>
         <div class="label">Usuarios</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card" *ngIf="hasMaterias()">
         <div class="value">{{ totalMaterias() }}</div>
         <div class="label">Materias</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card" *ngIf="hasInscripciones()">
         <div class="value">{{ totalInscripciones() }}</div>
         <div class="label">Inscripciones</div>
       </div>
@@ -37,24 +37,35 @@
       </div>
     </div>
 
-    <!-- Accesos rápidos -->
+    <!-- Accesos rápidos: solo se muestran los módulos activos en este producto -->
     <div class="page-header">
       <h3>Módulos de gestión</h3>
     </div>
     <div class="stat-grid">
-      <a routerLink="/materias" class="stat-card" style="text-decoration:none;">
+      <a *ngIf="hasMaterias()" routerLink="/materias" class="stat-card" style="text-decoration:none;">
         <div class="value">📚</div>
         <div class="label">Gestionar materias</div>
       </a>
-      <a routerLink="/inscripciones" class="stat-card" style="text-decoration:none;">
+      <a *ngIf="hasInscripciones()" routerLink="/inscripciones" class="stat-card" style="text-decoration:none;">
         <div class="value">📝</div>
         <div class="label">Gestionar inscripciones</div>
       </a>
-      <a routerLink="/auditoria" class="stat-card" style="text-decoration:none;">
+      <a *ngIf="hasAuditoria()" routerLink="/auditoria" class="stat-card" style="text-decoration:none;">
         <div class="value">🔍</div>
         <div class="label">Registro de auditoría</div>
       </a>
       <!-- add-feature:insert-here -->
+    </div>
+
+    <!-- Instalador de Core Assets: siempre visible, sin importar los toggles activos -->
+    <div class="page-header">
+      <h3>Fábrica de Software</h3>
+    </div>
+    <div class="stat-grid">
+      <a routerLink="/fabrica" class="stat-card" style="text-decoration:none;">
+        <div class="value">🏭</div>
+        <div class="label">Módulos de la Fábrica (instalar nuevos assets)</div>
+      </a>
     </div>
 
     <!-- Tabla de usuarios -->
