@@ -10,8 +10,14 @@ const { composeModules, mergeResolvers } = require('./compose');
 const { crearFeatureToggles, cargarConfig } = require('./feature-toggles');
 const { ensureDatabase, ensureBaseTables, ensureAuditoriaTable } = require('./db-schema');
 const { createUsuarioModel, createRoleModel, baseTypeDefs, buildBaseResolvers } = require('./auth-base');
+const { FEATURES_CATALOG, installAsset, catalogoConEstado, leerAssets } = require('./installer');
 
 module.exports = {
+  // Instalador de Core Assets (CLI y GUI comparten esta lógica)
+  FEATURES_CATALOG,
+  installAsset,
+  catalogoConEstado,
+  leerAssets,
   // CA-013 · Base de datos
   createDbClient,
   connect,
