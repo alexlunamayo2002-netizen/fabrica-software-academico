@@ -18,13 +18,14 @@ require('dotenv').config();
 
 /**
  * Espera a que un puerto quede libre, haciendo un bind de prueba con `net`.
- * El instalador GUI reinicia este proceso (nodemon detecta un touch al
- * archivo); en Windows el socket anterior a veces tarda unos ms en
- * liberarse. Apollo's startStandaloneServer emite el EADDRINUSE como un
- * evento 'error' no capturable con try/catch normal, así que se verifica
- * el puerto ANTES de arrancar el servidor real, en vez de reintentar Apollo.
+ * Útil ante reinicios de nodemon (al editar un archivo): en Windows el socket
+ * anterior tarda unos ms en liberarse. Apollo's startStandaloneServer emite el
+ * EADDRINUSE como un evento 'error' no capturable con try/catch normal, así que
+ * se verifica el puerto ANTES de arrancar el servidor real.
+ * Si tras unos intentos sigue ocupado, es OTRA app usando el puerto → se lanza
+ * el error para dar un mensaje claro (ver startServer).
  */
-function waitForPortFree(port, maxIntentos = 20, esperaMs = 500) {
+function waitForPortFree(port, maxIntentos = 6, esperaMs = 500) {
   return new Promise((resolve, reject) => {
     let intento = 0;
     const probar = () => {
@@ -101,8 +102,18 @@ async function startServer() {
   const { typeDefs, resolvers } = composeModules(modules);
   const server = new ApolloServer({ typeDefs, resolvers });
 
-  const port = process.env.PORT || 4000;
-  await waitForPortFree(Number(port));
+  const port = process.env.PORT || 4300;
+  try {
+    await waitForPortFree(Number(port));
+  } catch (err) {
+    if (err && err.code === 'EADDRINUSE') {
+      console.error(`\n❌ El puerto ${port} está ocupado por otra aplicación.`);
+      console.error(`   Cambia PORT en backend/.env a un puerto libre (ej. 4310)`);
+      console.error(`   y ajusta apiUrl en frontend/src/environments/environment.ts al mismo puerto.\n`);
+      process.exit(1);
+    }
+    throw err;
+  }
 
   const { url } = await startStandaloneServer(server, {
     listen: { port },
