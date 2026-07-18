@@ -8,8 +8,14 @@ const { Client } = require('pg');
 /**
  * Crea la base de datos del producto si no existe.
  * Se conecta a la BD administrativa "postgres" con las mismas credenciales.
- * @param {object} env - normalmente process.env (usa DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, DB_SSL)
- * @returns {Promise<boolean>} true si la creó, false si ya existía.
+ *
+ * NO es fatal: en BD gestionadas (Render/Supabase) la base ya existe y el
+ * usuario suele no tener acceso a "postgres" ni permiso de CREATE DATABASE.
+ * En ese caso se avisa y se continúa: la conexión real a la BD del producto
+ * (que ya existe) y el CREATE TABLE IF NOT EXISTS se encargan del resto.
+ *
+ * @param {object} env - normalmente process.env
+ * @returns {Promise<boolean>} true si la creó, false si ya existía o no se pudo.
  */
 async function ensureDatabase(env = process.env) {
   const useSsl = String(env.DB_SSL).toLowerCase() !== 'false';
@@ -21,16 +27,19 @@ async function ensureDatabase(env = process.env) {
     password: env.DB_PASSWORD,
     ssl: useSsl ? { rejectUnauthorized: false } : false,
   });
-  await admin.connect();
   try {
+    await admin.connect();
     const { rows } = await admin.query('SELECT 1 FROM pg_database WHERE datname = $1', [env.DB_NAME]);
     if (rows.length > 0) return false;
     // CREATE DATABASE no acepta parámetros; el nombre viene del .env del producto.
     await admin.query(`CREATE DATABASE "${String(env.DB_NAME).replace(/"/g, '')}"`);
     console.log(`  🗄️  Base de datos "${env.DB_NAME}" creada`);
     return true;
+  } catch (e) {
+    console.log(`  ℹ️  No se pudo autocrear la base ("${e.message}"). Se asume que ya existe y se continúa.`);
+    return false;
   } finally {
-    await admin.end();
+    try { await admin.end(); } catch { /* noop */ }
   }
 }
 

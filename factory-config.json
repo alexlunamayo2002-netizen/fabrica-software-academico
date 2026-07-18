@@ -26,14 +26,14 @@
         "CA-009_EsquemaGraphQLBase": true,
         "CA-010_ResolversGraphQL": true,
         "CA-011_JWTMiddleware": true,
-        "CA-013_ConfiguracionBD": true
+        "CA-013_ConfiguracionBD": true,
+        "CA-018_SetupBD_Automatico": true
       },
       "opcionales": {
         "CA-007_RegistroAbierto": true,
         "CA-012_ModeloAuditoria": true,
         "CA-016_ModuloMaterias": true,
-        "CA-017_ModuloInscripciones": true,
-        "CA-018_SetupBD_Automatico": true
+        "CA-017_ModuloInscripciones": true
       }
     },
     "entorno": {
