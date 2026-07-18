@@ -63,50 +63,38 @@ CREATE INDEX IF NOT EXISTS idx_auditoria_entidad ON auditoria(entidad);
 
 
 -- ============================================================
--- MÓDULO: MATERIAS  [CA-016 · HU-S2.1 · Sprint 2]
--- Descripción: Catálogo de materias/cursos del sistema académico.
---   Core Asset opcional de la Línea de Productos (SPLE).
+-- MÓDULO: MATERIAS  [CA-016]
+-- Descripción: Catálogo de materias académicas del sistema.
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS materias (
     id SERIAL PRIMARY KEY,
     codigo VARCHAR(20) UNIQUE NOT NULL,
-    nombre VARCHAR(150) NOT NULL,
-    creditos INTEGER NOT NULL DEFAULT 0 CHECK (creditos >= 0),
+    nombre VARCHAR(200) NOT NULL,
+    creditos INT NOT NULL DEFAULT 3,
     descripcion TEXT,
-    docente_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_materias_codigo ON materias(codigo);
-CREATE INDEX IF NOT EXISTS idx_materias_docente ON materias(docente_id);
-
--- Materias de ejemplo (seed) para validar el módulo
-INSERT INTO materias (codigo, nombre, creditos, descripcion)
-VALUES
-    ('MAT-101', 'Cálculo Diferencial', 4, 'Fundamentos de límites, derivadas y aplicaciones.'),
-    ('INF-201', 'Estructuras de Datos', 5, 'Listas, pilas, colas, árboles y grafos.'),
-    ('SW-301',  'Ingeniería de Software', 4, 'Líneas de producto de software y fábricas de software.')
-ON CONFLICT (codigo) DO NOTHING;
 
 
 -- ============================================================
--- MÓDULO: INSCRIPCIONES  [CA-017 · HU-S2.3 · Sprint 2]
--- Descripción: Relación estudiante-materia (matrículas).
---   FK: estudiante_id -> usuarios(id), materia_id -> materias(id)
---   Restricción: un estudiante no puede inscribirse dos veces
---   en la misma materia (UNIQUE estudiante_id + materia_id).
+-- MÓDULO: INSCRIPCIONES  [CA-017]
+-- Descripción: Inscripciones de estudiantes a materias.
+-- FK: estudiante_id -> usuarios(id)
+-- FK: materia_id    -> materias(id)
+-- UNIQUE: un estudiante no puede inscribirse dos veces a la misma materia.
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS inscripciones (
     id SERIAL PRIMARY KEY,
     estudiante_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-    materia_id INTEGER NOT NULL REFERENCES materias(id) ON DELETE CASCADE,
-    estado VARCHAR(20) NOT NULL DEFAULT 'ACTIVA',
-    fecha_inscripcion TIMESTAMP NOT NULL DEFAULT NOW(),
-    UNIQUE (estudiante_id, materia_id)
+    materia_id    INTEGER NOT NULL REFERENCES materias(id) ON DELETE CASCADE,
+    fecha_inscripcion TIMESTAMP DEFAULT NOW(),
+    CONSTRAINT uk_inscripcion UNIQUE (estudiante_id, materia_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_inscripciones_estudiante ON inscripciones(estudiante_id);
-CREATE INDEX IF NOT EXISTS idx_inscripciones_materia ON inscripciones(materia_id);
+CREATE INDEX IF NOT EXISTS idx_inscripciones_materia    ON inscripciones(materia_id);

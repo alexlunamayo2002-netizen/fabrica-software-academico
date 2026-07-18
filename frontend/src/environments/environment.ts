@@ -1,4 +1,10 @@
 export const environment = {
   production: false,
-  apiUrl: 'http://localhost:4000'
+  apiUrl: 'http://localhost:4000',
+  features: {
+    registro: true,       // CA-007
+    auditoria: false,     // CA-012
+    materias: true,       // CA-016
+    inscripciones: true,  // CA-017
+  }
 };

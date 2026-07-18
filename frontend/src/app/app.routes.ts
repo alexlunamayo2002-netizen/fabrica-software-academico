@@ -21,28 +21,26 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/dashboard/dashboard.component').then(c => c.DashboardComponent),
     canActivate: [authGuard]
   },
-  // Sprint 2 · CA-016 Materias
   {
     path: 'materias',
     loadComponent: () => import('./pages/materias/materias.component').then(c => c.MateriasComponent),
     canActivate: [authGuard]
   },
-  // Sprint 2 · CA-017 Inscripciones
   {
     path: 'inscripciones',
     loadComponent: () => import('./pages/inscripciones/inscripciones.component').then(c => c.InscripcionesComponent),
-    canActivate: [authGuard]
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ['ADMIN', 'DOCENTE'] }
   },
-  // Sprint 2 · CA-012 Auditoría
   {
-    path: 'auditoria',
-    loadComponent: () => import('./pages/auditoria/auditoria.component').then(c => c.AuditoriaComponent),
-    canActivate: [authGuard]
+    path: 'mis-inscripciones',
+    loadComponent: () => import('./pages/mis-inscripciones/mis-inscripciones.component').then(c => c.MisInscripcionesComponent),
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ['ESTUDIANTE'] }
   },
-  // Sprint 2 · HU-S2.5 Panel de Administración (exclusivo ADMIN)
   {
     path: 'admin',
-    loadComponent: () => import('./pages/admin/admin.component').then(c => c.AdminComponent),
+    loadComponent: () => import('./pages/admin-panel/admin-panel.component').then(c => c.AdminPanelComponent),
     canActivate: [authGuard, roleGuard],
     data: { roles: ['ADMIN'] }
   },

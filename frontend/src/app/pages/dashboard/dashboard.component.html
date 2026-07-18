@@ -22,34 +22,77 @@
       <p>Bienvenido a tu panel de {{ user.rol.toLowerCase() }}. Aquí podrás gestionar todas tus actividades.</p>
     </div>
 
-    <!-- Specific content based on role (Placeholder) -->
     <div class="role-modules mt-8">
       <h3 class="mb-4">Módulos Disponibles</h3>
-      
+
       <div class="modules-grid">
         <!-- ADMIN MODULES -->
         <ng-container *ngIf="user?.rol === Role.ADMIN">
-          <a routerLink="/admin" class="module-card">🛠️ Panel de Administración</a>
-          <a *ngIf="hasMaterias()" routerLink="/materias" class="module-card">📚 Gestión de Materias</a>
-          <a *ngIf="hasInscripciones()" routerLink="/inscripciones" class="module-card">📝 Gestión de Inscripciones</a>
-          <a *ngIf="hasAuditoria()" routerLink="/auditoria" class="module-card">🔍 Registro de Auditoría</a>
+          <a class="module-card" routerLink="/admin">
+            <span class="module-icon">🛡️</span>
+            <div class="module-info">
+              <span class="module-title">Panel de Administración</span>
+              <span class="module-desc">Estadísticas y gestión global del sistema</span>
+            </div>
+          </a>
+          <a class="module-card" routerLink="/materias" *ngIf="features.materias">
+            <span class="module-icon">📚</span>
+            <div class="module-info">
+              <span class="module-title">Gestión de Materias</span>
+              <span class="module-desc">Crear, editar y eliminar materias</span>
+            </div>
+          </a>
+          <a class="module-card" routerLink="/inscripciones" *ngIf="features.inscripciones">
+            <span class="module-icon">🎓</span>
+            <div class="module-info">
+              <span class="module-title">Gestión de Inscripciones</span>
+              <span class="module-desc">Inscribir y desinscribir estudiantes</span>
+            </div>
+          </a>
+          <a class="module-card" routerLink="/auditoria" *ngIf="features.auditoria">
+            <span class="module-icon">📋</span>
+            <div class="module-info">
+              <span class="module-title">Auditoría</span>
+              <span class="module-desc">Historial de acciones del sistema</span>
+            </div>
+          </a>
         </ng-container>
 
         <!-- DOCENTE MODULES -->
         <ng-container *ngIf="user?.rol === Role.DOCENTE">
-          <a *ngIf="hasMaterias()" routerLink="/materias" class="module-card">📚 Mis Materias</a>
-          <a *ngIf="hasInscripciones()" routerLink="/inscripciones" class="module-card">📝 Inscripciones</a>
+          <a class="module-card" routerLink="/materias" *ngIf="features.materias">
+            <span class="module-icon">📚</span>
+            <div class="module-info">
+              <span class="module-title">Materias</span>
+              <span class="module-desc">Consultar, crear y editar materias</span>
+            </div>
+          </a>
+          <a class="module-card" routerLink="/inscripciones" *ngIf="features.inscripciones">
+            <span class="module-icon">🎓</span>
+            <div class="module-info">
+              <span class="module-title">Inscripciones</span>
+              <span class="module-desc">Ver y gestionar inscripciones de estudiantes</span>
+            </div>
+          </a>
         </ng-container>
 
         <!-- ESTUDIANTE MODULES -->
         <ng-container *ngIf="user?.rol === Role.ESTUDIANTE">
-          <a *ngIf="hasMaterias()" routerLink="/materias" class="module-card">📚 Catálogo de Materias</a>
-          <a *ngIf="hasInscripciones()" routerLink="/inscripciones" class="module-card">📝 Mis Inscripciones</a>
+          <a class="module-card" routerLink="/materias" *ngIf="features.materias">
+            <span class="module-icon">📚</span>
+            <div class="module-info">
+              <span class="module-title">Catálogo de Materias</span>
+              <span class="module-desc">Consulta las materias disponibles</span>
+            </div>
+          </a>
+          <a class="module-card" routerLink="/mis-inscripciones" *ngIf="features.inscripciones">
+            <span class="module-icon">🎓</span>
+            <div class="module-info">
+              <span class="module-title">Mis Inscripciones</span>
+              <span class="module-desc">Inscríbete y gestiona tus materias</span>
+            </div>
+          </a>
         </ng-container>
-
-        <div class="empty-state" *ngIf="user?.rol !== Role.ADMIN && !hasMaterias() && !hasInscripciones()">
-          No hay módulos adicionales activos en este producto.
-        </div>
       </div>
     </div>
   </main>

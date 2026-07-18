@@ -1,0 +1,130 @@
+<div class="mi-layout">
+  <header class="topbar">
+    <div class="brand">
+      <button class="btn-back" (click)="goBack()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </button>
+      <div class="logo">FA</div>
+      <h1>Mis Inscripciones</h1>
+    </div>
+    <div class="user-profile" *ngIf="user">
+      <div class="avatar">{{ user.nombre.charAt(0).toUpperCase() }}</div>
+      <span class="name">{{ user.nombre }}</span>
+      <button class="btn-logout" (click)="logout()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="content">
+    <!-- ALERTAS -->
+    <div class="alert-success" *ngIf="successMsg">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+      {{ successMsg }}
+    </div>
+    <div class="alert-error" *ngIf="error">
+      {{ error }}
+      <button (click)="error = ''">×</button>
+    </div>
+
+    <div class="two-col">
+      <!-- PANEL IZQ: Materias disponibles -->
+      <aside class="panel-disponibles glass-panel">
+        <h3>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+          Materias Disponibles
+        </h3>
+        <p class="sub">Selecciona una materia para inscribirte</p>
+
+        <div class="loading-inline" *ngIf="loading">
+          <div class="spinner-sm-dark"></div>
+        </div>
+
+        <div class="materias-lista" *ngIf="!loading">
+          <div class="materia-item" *ngFor="let m of materiasDisponibles">
+            <div class="materia-info">
+              <span class="badge-codigo">{{ m.codigo }}</span>
+              <div class="materia-detalle">
+                <span class="materia-nombre">{{ m.nombre }}</span>
+                <span class="materia-creditos">{{ m.creditos }} créditos</span>
+              </div>
+            </div>
+            <button
+              class="btn-inscribir"
+              (click)="inscribirme(m.id)"
+              [disabled]="inscribiendoId === m.id">
+              <span class="spinner-sm" *ngIf="inscribiendoId === m.id"></span>
+              <svg *ngIf="inscribiendoId !== m.id" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              {{ inscribiendoId === m.id ? '' : 'Inscribir' }}
+            </button>
+          </div>
+
+          <div class="empty-disponibles" *ngIf="materiasDisponibles.length === 0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <p>Estás inscrito en todas las materias disponibles.</p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- PANEL DER: Mis inscripciones activas -->
+      <section class="panel-inscritas">
+        <div class="panel-header">
+          <h3>Mis Materias Inscritas</h3>
+          <span class="count-badge">{{ misInscripciones.length }}</span>
+        </div>
+
+        <div class="loading-state" *ngIf="loading">
+          <div class="spinner"></div>
+        </div>
+
+        <div class="inscritas-lista" *ngIf="!loading">
+          <div class="inscrita-card" *ngFor="let ins of misInscripciones">
+            <div class="inscrita-top">
+              <div class="inscrita-info">
+                <span class="badge-codigo">{{ ins.materia.codigo }}</span>
+                <div>
+                  <div class="inscrita-nombre">{{ ins.materia.nombre }}</div>
+                  <div class="inscrita-meta">
+                    <span class="creditos-pill">{{ ins.materia.creditos }} créditos</span>
+                    <span class="fecha-ins">Inscrito el {{ formatFecha(ins.fechaInscripcion) }}</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                class="btn-desinscribir"
+                (click)="pedirConfirmar(ins)"
+                [disabled]="desinscribiendoId === ins.materia.id"
+                title="Desinscribirme">
+                <span class="spinner-sm-red" *ngIf="desinscribiendoId === ins.materia.id"></span>
+                <svg *ngIf="desinscribiendoId !== ins.materia.id" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                Desinscribirme
+              </button>
+            </div>
+          </div>
+
+          <div class="empty-state" *ngIf="misInscripciones.length === 0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+            <p>Aún no estás inscrito en ninguna materia.</p>
+            <p class="sub">Selecciona una del panel izquierdo para comenzar.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL CONFIRMAR DESINSCRIPCIÓN -->
+<div class="modal-overlay" *ngIf="confirmDesinscribir" (click)="cancelarDesinscribir()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header danger">
+      <h3>Desinscribirme</h3>
+    </div>
+    <div class="modal-body">
+      <p>¿Seguro que deseas desinscribirte de <strong>{{ confirmDesinscribir.materiaNombre }}</strong>?</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" (click)="cancelarDesinscribir()">Cancelar</button>
+      <button class="btn-danger" (click)="desinscribirme()">Sí, desinscribirme</button>
+    </div>
+  </div>
+</div>

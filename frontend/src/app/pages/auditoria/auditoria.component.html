@@ -1,71 +1,72 @@
-<div class="page-layout">
-  <header class="page-topbar">
-    <div class="brand-left">
+<div class="auditoria-layout">
+  <header class="topbar">
+    <div class="brand">
+      <button class="btn-back" (click)="goBack()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </button>
       <div class="logo">FA</div>
-      <h1>Auditoría</h1>
+      <div>
+        <h1>Auditoría del Sistema</h1>
+        <span class="subtitle">Historial de acciones — solo ADMIN</span>
+      </div>
     </div>
-    <a routerLink="/dashboard" class="btn btn-secondary btn-sm">← Volver al panel</a>
+    <div class="user-profile" *ngIf="user">
+      <div class="avatar">{{ user.nombre.charAt(0).toUpperCase() }}</div>
+      <div class="user-info">
+        <span class="name">{{ user.nombre }}</span>
+        <span class="role-badge">ADMIN</span>
+      </div>
+      <button class="btn-logout" (click)="logout()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+      </button>
+    </div>
   </header>
 
-  <main class="page-content">
-    <div class="page-header">
-      <div>
-        <h2>Registro de Auditoría</h2>
-        <p>Eventos del sistema registrados por el Core Asset CA-012.</p>
-      </div>
-      <button class="btn btn-secondary" (click)="cargar()">⟳ Actualizar</button>
+  <main class="content">
+    <div class="alert-error" *ngIf="error">{{ error }}</div>
+
+    <div class="loading-state" *ngIf="loading">
+      <div class="spinner"></div>
+      <p>Cargando registros de auditoría...</p>
     </div>
 
-    <div class="alert-error" *ngIf="error()">{{ error() }}</div>
+    <ng-container *ngIf="!loading && !error">
+      <section class="section">
+        <h2 class="section-title">Eventos registrados <span class="count">({{ eventos.length }})</span></h2>
 
-    <!-- Filtros por acción -->
-    <div class="card" *ngIf="accionesUnicas().length > 0">
-      <strong style="font-size:0.8rem;color:var(--text-secondary);">FILTRAR POR ACCIÓN:</strong>
-      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.5rem;">
-        <button *ngFor="let a of accionesUnicas()"
-                class="btn btn-sm"
-                [class.btn-primary]="filtroAccion() === a"
-                [class.btn-secondary]="filtroAccion() !== a"
-                (click)="setFiltro(a)">{{ a }}</button>
-      </div>
-    </div>
-
-    <!-- Tabla de eventos -->
-    <div class="table-wrapper card" style="padding:0;">
-      <div class="empty-state" *ngIf="cargando()">Cargando eventos…</div>
-      <div class="empty-state" *ngIf="!cargando() && eventosFiltrados().length === 0">
-        No hay eventos de auditoría registrados.
-      </div>
-      <table class="data-table" *ngIf="!cargando() && eventosFiltrados().length > 0">
-        <thead>
-          <tr>
-            <th>Fecha</th>
-            <th>Acción</th>
-            <th>Usuario</th>
-            <th>Entidad</th>
-            <th>Detalles</th>
-            <th>IP</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let e of eventosFiltrados()">
-            <td style="white-space:nowrap;">{{ e.fechaHora | date:'short' }}</td>
-            <td>
-              <span class="badge"
-                    [class.activa]="claseAccion(e.accion) === 'ok'"
-                    [class.admin]="claseAccion(e.accion) === 'neutral'"
-                    [style.background]="claseAccion(e.accion) === 'danger' ? '#fef2f2' : null"
-                    [style.color]="claseAccion(e.accion) === 'danger' ? '#dc2626' : null">
-                {{ e.accion }}
-              </span>
-            </td>
-            <td>{{ e.usuarioNombre || '—' }}</td>
-            <td>{{ e.entidad || '—' }}</td>
-            <td>{{ e.detalles || '—' }}</td>
-            <td>{{ e.ipAddress || '—' }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+        <div class="table-wrapper">
+          <table class="audit-table" *ngIf="eventos.length > 0; else emptyState">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Acción</th>
+                <th>Usuario</th>
+                <th>Detalles</th>
+                <th>IP</th>
+                <th>Fecha y hora</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let e of eventos; let i = index">
+                <td class="id-cell">{{ e.id }}</td>
+                <td>
+                  <span class="accion-badge" [class]="accionColor(e.accion)">{{ e.accion }}</span>
+                </td>
+                <td>
+                  <span *ngIf="e.usuarioNombre">{{ e.usuarioNombre }}</span>
+                  <span class="dim" *ngIf="!e.usuarioNombre">—</span>
+                </td>
+                <td class="detalles-cell">{{ e.detalles }}</td>
+                <td class="ip-cell">{{ e.ipAddress }}</td>
+                <td class="fecha-cell">{{ formatFecha(e.fechaHora) }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <ng-template #emptyState>
+            <div class="empty-state"><p>No hay eventos registrados.</p></div>
+          </ng-template>
+        </div>
+      </section>
+    </ng-container>
   </main>
 </div>

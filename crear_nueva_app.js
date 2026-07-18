@@ -1,477 +1,407 @@
-const fs = require('fs');
-const path = require('path');
-const { execSync } = require('child_process');
+#!/usr/bin/env node
+'use strict';
 
-// --no-install salta la instalación automática de dependencias
-const SKIP_INSTALL = process.argv.includes('--no-install');
+const fs       = require('fs');
+const path     = require('path');
+const readline = require('readline');
 
-// ============================================================
-// FÁBRICA DE SOFTWARE ACADÉMICO — Generador de Productos v2
-// Genera un ESQUELETO LIVIANO que consume las librerías
-// @fabrica/* desde GitHub (no las copia localmente).
-// ============================================================
+// ── Colores ANSI ──────────────────────────────────────────────────────────────
+const C = {
+  reset: '\x1b[0m', bold: '\x1b[1m', dim: '\x1b[2m',
+  green: '\x1b[32m', red: '\x1b[31m', yellow: '\x1b[33m',
+  cyan: '\x1b[36m',
+};
+const ok    = `${C.green}✅${C.reset}`;
+const cross = `${C.red}❌${C.reset}`;
+const warn  = `${C.yellow}⚠️ ${C.reset}`;
 
-// 1. Cargar Configuración de la Fábrica
-const configPath = path.join(__dirname, 'factory-config.json');
-let config;
-try {
-    config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-} catch (e) {
-    console.error("❌ Error: No se encontró factory-config.json. ¿Estás en la raíz de la fábrica?");
-    process.exit(1);
-}
+// ── Catálogo de Core Assets ───────────────────────────────────────────────────
+const MANDATORY = [
+  'CA-001  Design System & Tokens CSS',
+  'CA-002  Modelo Usuario (Frontend)',
+  'CA-003  Auth Service (JWT)',
+  'CA-004  Auth Guard',
+  'CA-005  Role Guard',
+  'CA-006  Página de Login',
+  'CA-008  Dashboard por Rol',
+  'CA-009  Esquema GraphQL Base',
+  'CA-010  Resolvers GraphQL (auth, usuarios)',
+  'CA-011  JWT Middleware',
+  'CA-013  Configuración Base de Datos (Pool)',
+];
 
-// 2. Obtener el nombre del proyecto
-const nameArg = process.argv.slice(2).find(a => !a.startsWith('--'));
-const projectName = nameArg || config.configuracion_nuevo_proyecto.nombre_default;
-const targetDir = path.join(__dirname, '..', projectName);
+const OPTIONAL = [
+  {
+    key: 'CA-007_RegistroAbierto',
+    label: 'CA-007  Registro Público de Usuarios',
+    desc:  'Página /registro — visitantes pueden crear su cuenta',
+    default: true,
+  },
+  {
+    key: 'CA-012_ModeloAuditoria',
+    label: 'CA-012  Auditoría del Sistema',
+    desc:  'Panel /auditoria (solo ADMIN) — historial de login/logout/registro',
+    default: false,
+  },
+  {
+    key: 'CA-016_ModuloMaterias',
+    label: 'CA-016  Módulo de Materias',
+    desc:  'CRUD de materias académicas vía GraphQL (@fabrica/academico)',
+    default: true,
+  },
+  {
+    key: 'CA-017_ModuloInscripciones',
+    label: 'CA-017  Módulo de Inscripciones',
+    desc:  'Inscripción de estudiantes a materias (requiere CA-016)',
+    default: true,
+  },
+];
 
-console.log(`\n🏭 FÁBRICA DE SOFTWARE — Ensamblaje de Producto Liviano: ${projectName}`);
-console.log(`${'='.repeat(60)}`);
+// ── Utilidades ────────────────────────────────────────────────────────────────
+const rl  = readline.createInterface({ input: process.stdin, output: process.stdout });
+const ask = (q) => new Promise(r => rl.question(q, r));
 
-// Utilidades
 function copyRecursiveSync(src, dest) {
-    const exists = fs.existsSync(src);
-    const stats = exists && fs.statSync(src);
-    const isDirectory = exists && stats.isDirectory();
-
-    if (isDirectory) {
-        if (/node_modules|\.git|\.angular|[\\/]dist([\\/]|$)/.test(src)) return;
-        fs.mkdirSync(dest, { recursive: true });
-        fs.readdirSync(src).forEach(child => {
-            copyRecursiveSync(path.join(src, child), path.join(dest, child));
-        });
-    } else {
-        fs.copyFileSync(src, dest);
-    }
+  if (!fs.existsSync(src)) return;
+  const stats = fs.statSync(src);
+  if (stats.isDirectory()) {
+    if (['node_modules', '.git', '.angular'].some(x => src.includes(x))) return;
+    fs.mkdirSync(dest, { recursive: true });
+    for (const child of fs.readdirSync(src))
+      copyRecursiveSync(path.join(src, child), path.join(dest, child));
+  } else {
+    fs.copyFileSync(src, dest);
+  }
 }
 
-function removeFromFile(filePath, regex, replacement = '') {
-    if (fs.existsSync(filePath)) {
-        let content = fs.readFileSync(filePath, 'utf8');
-        content = content.replace(regex, replacement);
-        fs.writeFileSync(filePath, content);
-    }
+function removeFromFile(filePath, regex) {
+  if (!fs.existsSync(filePath)) return;
+  let txt = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+  fs.writeFileSync(filePath, txt.replace(regex, ''));
 }
 
-try {
-    if (fs.existsSync(targetDir)) {
-        console.error(`❌ Error: El directorio ${targetDir} ya existe. Elige otro nombre.`);
-        process.exit(1);
-    }
+// ── Render del menú ───────────────────────────────────────────────────────────
+function printBanner() {
+  console.log(`\n${C.cyan}${C.bold}  ╔═══════════════════════════════════════════════════════╗`);
+  console.log(`  ║       🏭  FÁBRICA DE SOFTWARE ACADÉMICO v2.0        ║`);
+  console.log(`  ╚═══════════════════════════════════════════════════════╝${C.reset}\n`);
+}
 
-    // Override de assets opcionales desde la Consola de la Fábrica (GUI).
-    // Se pasa por env FABRICA_OPCIONALES (JSON: {"CA-012_...": true, ...})
-    // para elegir qué llevar SIN mutar el factory-config.json del repo.
-    if (process.env.FABRICA_OPCIONALES) {
-        try {
-            const override = JSON.parse(process.env.FABRICA_OPCIONALES);
-            const ca = config.configuracion_nuevo_proyecto.core_assets;
-            if (ca.opcionales) Object.assign(ca.opcionales, override);
-            else Object.assign(ca, override);
-        } catch (e) {
-            console.error('⚠️  FABRICA_OPCIONALES no es JSON válido, se ignora:', e.message);
-        }
-    }
+function renderMenu(sel) {
+  console.clear();
+  printBanner();
 
-    // core_assets soporta formato anidado {obligatorios, opcionales} o plano (legacy)
-    const rawAssets = config.configuracion_nuevo_proyecto.core_assets || {};
-    const assets = (rawAssets.obligatorios || rawAssets.opcionales)
-      ? { ...(rawAssets.obligatorios || {}), ...(rawAssets.opcionales || {}) }
-      : rawAssets;
-    const materiasOn = assets['CA-016_ModuloMaterias'] !== false;
-    const inscripcionesOn = materiasOn && assets['CA-017_ModuloInscripciones'] !== false;
-    const auditoriaOn = assets['CA-012_ModeloAuditoria'] !== false;
-    const registroOn = assets['CA-007_RegistroAbierto'] !== false;
+  console.log(`${C.bold}  CORE ASSETS OBLIGATORIOS${C.reset} ${C.dim}(siempre incluidos — no modificables):${C.reset}`);
+  MANDATORY.forEach(m => console.log(`    ${ok}  ${C.dim}${m}${C.reset}`));
 
-    // =========================================================
-    // PASO 1: Copiar backend y frontend (sin packages/)
-    // =========================================================
-    console.log(`\n📁 1. Generando esqueleto del producto...`);
-    fs.mkdirSync(targetDir);
+  console.log(`\n${C.bold}  CORE ASSETS OPCIONALES${C.reset} ${C.dim}— escribe el número para activar/desactivar:${C.reset}`);
+  console.log(`  ${'─'.repeat(62)}`);
+  OPTIONAL.forEach((a, i) => {
+    const on  = sel[a.key];
+    const ico = on ? ok : cross;
+    const lbl = on
+      ? `${C.bold}${C.green}${a.label}${C.reset}`
+      : `${C.dim}${a.label}${C.reset}`;
+    console.log(`  [${C.bold}${i + 1}${C.reset}] ${ico}  ${lbl}`);
+    console.log(`        ${C.dim}${a.desc}${C.reset}`);
+  });
+  console.log(`  ${'─'.repeat(62)}`);
+  console.log(`\n  ${C.dim}👉 Escribe el NÚMERO del asset para marcarlo o desmarcarlo.`);
+  console.log(`     Cuando termines de elegir, presiona ENTER sin escribir nada.${C.reset}`);
+}
 
-    const destFrontend = path.join(targetDir, 'frontend');
-    const destBackend = path.join(targetDir, 'backend');
+// ── Lógica de poda ────────────────────────────────────────────────────────────
+function applyPruning(sel, destFront, destBack, destConfig) {
 
-    // Copiar backend y frontend (código del producto, SIN librerías)
-    copyRecursiveSync(path.join(__dirname, 'backend'), destBackend);
-    copyRecursiveSync(path.join(__dirname, 'frontend'), destFrontend);
-    // El backend de referencia del propio repo lleva su factory-config.json
-    // (necesario solo para el contexto de build de SU Dockerfile). En un
-    // producto derivado esa copia queda obsoleta y, peor, cargarConfig()
-    // la encuentra ANTES que la del producto (busca hacia arriba desde
-    // backend/), leyendo toggles incorrectos. Se elimina siempre aquí; el
-    // paso 5 escribe la config correcta en la raíz del producto.
-    const staleBackendConfig = path.join(destBackend, 'factory-config.json');
-    if (fs.existsSync(staleBackendConfig)) fs.unlinkSync(staleBackendConfig);
-    console.log(`  ✅ Backend y frontend copiados (sin librerías @fabrica/*)`);
+  // CA-007: Registro público
+  if (!sel['CA-007_RegistroAbierto']) {
+    console.log(`  ➔ ${warn} CA-007 excluido — eliminando página /registro`);
+    const pg = path.join(destFront, 'src/app/pages/registro');
+    if (fs.existsSync(pg)) fs.rmSync(pg, { recursive: true, force: true });
+    removeFromFile(
+      path.join(destFront, 'src/app/app.routes.ts'),
+      /\n\s*\{[^\n]*\n\s*path:\s*'registro',[\s\S]*?\},/g
+    );
+  } else {
+    console.log(`  ➔ ${ok} CA-007 incluido`);
+  }
 
-    // =========================================================
-    // PASO 2: Generar package.json con deps de GitHub
-    // =========================================================
-    console.log(`\n📦 2. Configurando dependencias desde GitHub...`);
+  // CA-012: Auditoría (frontend)
+  if (!sel['CA-012_ModeloAuditoria']) {
+    console.log(`  ➔ ${warn} CA-012 excluido — eliminando panel /auditoria`);
+    const pg = path.join(destFront, 'src/app/pages/auditoria');
+    if (fs.existsSync(pg)) fs.rmSync(pg, { recursive: true, force: true });
+    removeFromFile(
+      path.join(destFront, 'src/app/app.routes.ts'),
+      /\n\s*\{[^\n]*\n\s*path:\s*'auditoria',[\s\S]*?\},/g
+    );
+    // Compatibilidad con backend legacy
+    const legacyModel = path.join(destBack, 'src/models/Auditoria.js');
+    if (fs.existsSync(legacyModel)) fs.unlinkSync(legacyModel);
+  } else {
+    console.log(`  ➔ ${ok} CA-012 incluido`);
+  }
 
-    const GITHUB_REPO = 'alexlunamayo2002-netizen/fabrica-software-academico';
-
-    // package.json raíz — NO usa workspaces, las libs vienen de GitHub.
-    // `npm start` hace TODO: crea BD+tablas, crea admin y levanta backend+frontend.
-    const rootPkg = {
-        name: projectName.toLowerCase(),
-        version: '1.0.0',
-        private: true,
-        description: `Producto derivado de la Fábrica de Software Académico: ${projectName}`,
-        scripts: {
-            'install:all': 'cd backend && npm install && cd ../frontend && npm install',
-            'setup': 'node scripts/setup_db.js && node scripts/seed_admin.js',
-            'dev:backend': 'cd backend && npm run dev',
-            'start:frontend': 'cd frontend && npm start',
-            'start': 'npm run setup && concurrently -n backend,frontend -c blue,green "cd backend && npm run dev" "cd frontend && npm start"'
-        },
-        devDependencies: {
-            'concurrently': '^9.1.0'
-        }
-    };
-    fs.writeFileSync(path.join(targetDir, 'package.json'), JSON.stringify(rootPkg, null, 2));
-
-    // package.json del backend — libs de GitHub
-    const backendPkg = JSON.parse(fs.readFileSync(path.join(destBackend, 'package.json'), 'utf8'));
-    backendPkg.name = projectName.toLowerCase() + '-backend';
-    backendPkg.description = `Backend del producto ${projectName}`;
-
-    // Reemplazar dependencias locales por dependencias de GitHub
-    backendPkg.dependencies['@fabrica/node-core'] = `github:${GITHUB_REPO}#pkg/node-core`;
-    if (materiasOn) {
-        backendPkg.dependencies['@fabrica/academico'] = `github:${GITHUB_REPO}#pkg/academico`;
-    } else {
-        delete backendPkg.dependencies['@fabrica/academico'];
-    }
-
-    // Agregar script de setup de BD
-    backendPkg.scripts['db:setup'] = 'node ../scripts/setup_db.js';
-
-    // Eliminar package-lock.json viejo
-    const oldLock = path.join(destBackend, 'package-lock.json');
-    if (fs.existsSync(oldLock)) fs.unlinkSync(oldLock);
-
-    fs.writeFileSync(path.join(destBackend, 'package.json'), JSON.stringify(backendPkg, null, 2));
-    console.log(`  ✅ @fabrica/node-core → github:${GITHUB_REPO}#pkg/node-core`);
-    if (materiasOn) console.log(`  ✅ @fabrica/academico → github:${GITHUB_REPO}#pkg/academico`);
-    else console.log(`  ➖ @fabrica/academico omitido (CA-016 desactivado)`);
-
-    // Eliminar package-lock.json del frontend
-    const oldFeLock = path.join(destFrontend, 'package-lock.json');
-    if (fs.existsSync(oldFeLock)) fs.unlinkSync(oldFeLock);
-
-    // =========================================================
-    // PASO 3: Aplicar variabilidad (feature toggles)
-    // =========================================================
-    console.log(`\n🎛️  3. Aplicando variabilidad (feature toggles)...`);
-
-    const obligatorios = [
-        'CA-001_DesignSystem', 'CA-002_ModeloUsuarioFront', 'CA-003_AuthService',
-        'CA-004_AuthGuard', 'CA-005_RoleGuard', 'CA-006_Login', 'CA-008_Dashboard',
-        'CA-009_EsquemaGraphQLBase', 'CA-010_ResolversGraphQL', 'CA-011_JWTMiddleware',
-        'CA-013_ConfiguracionBD'
-    ];
-    for (const ca of obligatorios) {
-        if (assets[ca] === false) {
-            console.log(`  ⚠️  [${ca}] es OBLIGATORIO (commonality); se mantiene.`);
-        }
-    }
-
-    const estado = (on) => on ? '✅ activo' : '✂️  inactivo';
-    console.log(`  Backend · CA-012 Auditoría:     ${estado(auditoriaOn)}`);
-    console.log(`  Backend · CA-016 Materias:      ${estado(materiasOn)}`);
-    console.log(`  Backend · CA-017 Inscripciones: ${estado(inscripcionesOn)}`);
-    console.log(`  Frontend · CA-007 Registro:     ${estado(registroOn)}`);
-
-    // --- FRONTEND: poda estática ---
-    const routesPath = path.join(destFrontend, 'src', 'app', 'app.routes.ts');
-
-    if (!registroOn) {
-        console.log(`  ➔ ✂️  Frontend: podando [CA-007_RegistroAbierto]`);
-        const registroPath = path.join(destFrontend, 'src', 'app', 'pages', 'registro');
-        if (fs.existsSync(registroPath)) fs.rmSync(registroPath, { recursive: true, force: true });
-        removeFromFile(routesPath, /,\r?\n\s*{\r?\n\s*path: 'registro',[\s\S]*?}/g);
-    }
-
-    function podarFrontendModulo(ca, opts) {
-        console.log(`  ➔ ✂️  Frontend: podando [${ca}]`);
-        const page = path.join(destFrontend, 'src', 'app', 'pages', opts.page);
-        if (fs.existsSync(page)) fs.rmSync(page, { recursive: true, force: true });
-        const service = path.join(destFrontend, 'src', 'app', 'services', opts.service);
-        if (fs.existsSync(service)) fs.unlinkSync(service);
-        removeFromFile(routesPath, opts.routeRegex);
-    }
-
-    if (!auditoriaOn) {
-        console.log(`  ➔ ✂️  Frontend: podando [CA-012_ModeloAuditoria]`);
-        const auditPage = path.join(destFrontend, 'src', 'app', 'pages', 'auditoria');
-        if (fs.existsSync(auditPage)) fs.rmSync(auditPage, { recursive: true, force: true });
-        removeFromFile(routesPath, /,?\r?\n\s*\/\/ Sprint 2 · CA-012 Auditoría\r?\n\s*{\r?\n[\s\S]*?canActivate: \[authGuard\]\r?\n\s*}/g);
-        // Quitar el acceso rápido a auditoría del panel admin
-        const adminHtml = path.join(destFrontend, 'src', 'app', 'pages', 'admin', 'admin.component.html');
-        removeFromFile(adminHtml, /\s*<a routerLink="\/auditoria"[\s\S]*?<\/a>/g);
-    }
-    if (!inscripcionesOn) {
-        podarFrontendModulo('CA-017_ModuloInscripciones', {
-            page: 'inscripciones',
-            service: 'inscripcion.service.ts',
-            routeRegex: /,\r?\n\s*\/\/ Sprint 2 · CA-017 Inscripciones\r?\n\s*{\r?\n[\s\S]*?canActivate: \[authGuard\]\r?\n\s*}/g
-        });
-    }
-    if (!materiasOn) {
-        podarFrontendModulo('CA-016_ModuloMaterias', {
-            page: 'materias',
-            service: 'materia.service.ts',
-            routeRegex: /,\r?\n\s*\/\/ Sprint 2 · CA-016 Materias\r?\n\s*{\r?\n[\s\S]*?canActivate: \[authGuard\]\r?\n\s*}/g
-        });
-    }
-
-    // =========================================================
-    // PASO 4: Generar script inteligente de BD
-    // =========================================================
-    console.log(`\n🗄️  4. Generando script de setup de BD inteligente...`);
-
-    const scriptsDir = path.join(targetDir, 'scripts');
-    fs.mkdirSync(scriptsDir, { recursive: true });
-
-    const setupDbScript = `// ============================================================
-// SETUP DE BASE DE DATOS — Producto: ${projectName}
-// El DDL de cada Core Asset viaja dentro de su librería @fabrica/*.
-// Crea la database (si no existe) y las tablas de los assets activos.
-// Uso: node scripts/setup_db.js   (también corre solo al arrancar
-// el backend si CA-018_SetupBD_Automatico está activo)
-// ============================================================
-const path = require('path');
-module.paths.unshift(path.join(__dirname, '..', 'backend', 'node_modules'));
-require('dotenv').config({ path: path.join(__dirname, '..', 'backend', '.env') });
-const {
-  createDbClient, ensureDatabase, ensureBaseTables, ensureAuditoriaTable,
-  crearFeatureToggles, cargarConfig
-} = require('@fabrica/node-core');
-
-(async () => {
-  try {
-    const features = crearFeatureToggles(cargarConfig(path.join(__dirname, '..')));
-
-    console.log('Verificando base de datos...');
-    await ensureDatabase(process.env);
-
-    const client = createDbClient(process.env);
-    await client.connect();
-    console.log('✅ Conectado a "' + process.env.DB_NAME + '"\\n');
-
-    await ensureBaseTables(client);
-
-    if (features.isEnabled('CA-012_ModeloAuditoria')) {
-      await ensureAuditoriaTable(client);
-    } else {
-      console.log('  ➖ CA-012: Auditoría desactivada, tabla omitida');
-    }
-
-    if (features.isEnabled('CA-016_ModuloMaterias')) {
-      const { ensureMateriasTable, ensureInscripcionesTable } = require('@fabrica/academico');
-      await ensureMateriasTable(client);
-      if (features.isEnabled('CA-017_ModuloInscripciones')) {
-        await ensureInscripcionesTable(client);
-      } else {
-        console.log('  ➖ CA-017: Inscripciones desactivada, tabla omitida');
+  // CA-016: Materias
+  if (!sel['CA-016_ModuloMaterias']) {
+    console.log(`  ➔ ${warn} CA-016 excluido — eliminando módulo /materias`);
+    const pg = path.join(destFront, 'src/app/pages/materias');
+    if (fs.existsSync(pg)) fs.rmSync(pg, { recursive: true, force: true });
+    removeFromFile(
+      path.join(destFront, 'src/app/app.routes.ts'),
+      /\n\s*\{[^\n]*\n\s*path:\s*'materias',[\s\S]*?\},/g
+    );
+    if (!sel['CA-017_ModuloInscripciones']) {
+      const acadPkg = path.join(path.dirname(destBack), 'packages/academico');
+      if (fs.existsSync(acadPkg)) {
+        fs.rmSync(acadPkg, { recursive: true, force: true });
+        console.log(`       ${C.dim}↳ packages/academico eliminado (ningún módulo académico activo)${C.reset}`);
       }
-    } else {
-      console.log('  ➖ CA-016/CA-017: módulo académico desactivado, tablas omitidas');
     }
-
-    const tables = await client.query(
-      "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename"
-    );
-    console.log('\\n📊 Tablas en la BD:');
-    tables.rows.forEach(r => console.log('   • ' + r.tablename));
-    console.log('\\n🎉 ¡Setup de BD completado para ${projectName}!');
-    await client.end();
-  } catch (error) {
-    console.error('❌ Error en setup de BD:', error.message);
-    process.exit(1);
+  } else {
+    console.log(`  ➔ ${ok} CA-016 incluido`);
   }
-})();
-`;
 
-    fs.writeFileSync(path.join(scriptsDir, 'setup_db.js'), setupDbScript);
-    console.log(`  ✅ scripts/setup_db.js generado (el DDL vive en las librerías @fabrica/*)`);
-
-    // =========================================================
-    // PASO 5: Generar factory-config.json y .env
-    // =========================================================
-    console.log(`\n⚙️  5. Generando configuración...`);
-
-    fs.writeFileSync(path.join(targetDir, 'factory-config.json'), JSON.stringify(config, null, 2));
-
-    // .env: si hay config de BD local en la fábrica, se usa (dev listo de una);
-    // si no, se deja la plantilla remota para producción.
-    const entorno = config.configuracion_nuevo_proyecto.entorno;
-    const local = entorno.db_local;
-    const envContent = local
-      ? `# Configuración LOCAL (generada desde factory-config.entorno.db_local)
-DB_HOST=${local.host}
-DB_PORT=${local.port}
-DB_NAME=bd_${projectName.toLowerCase()}
-DB_USER=${local.user}
-DB_PASSWORD=${local.password}
-JWT_SECRET=secreto_${projectName.toLowerCase()}_${Date.now()}
-PORT=${entorno.puerto_backend}
-DB_SSL=${local.ssl ? 'true' : 'false'}
-`
-      : `DB_HOST=${entorno.db_host_template}
-DB_PORT=5432
-DB_NAME=bd_${projectName.toLowerCase()}
-DB_USER=tu_usuario
-DB_PASSWORD=tu_password
-JWT_SECRET=cambia_este_secreto_${Date.now()}
-PORT=${entorno.puerto_backend}
-DB_SSL=true
-`;
-    fs.writeFileSync(path.join(destBackend, '.env'), envContent);
-
-    // Sincronizar el environment.ts del frontend con el puerto del backend,
-    // para que el producto quede consistente sin importar el valor que tenga
-    // la copia de referencia de la fábrica.
-    const envTsPath = path.join(destFrontend, 'src', 'environments', 'environment.ts');
-    if (fs.existsSync(envTsPath)) {
-        removeFromFile(envTsPath, /apiUrl:\s*'http:\/\/localhost:\d+'/g, `apiUrl: 'http://localhost:${entorno.puerto_backend}'`);
+  // CA-017: Inscripciones
+  if (!sel['CA-017_ModuloInscripciones']) {
+    console.log(`  ➔ ${warn} CA-017 excluido — eliminando módulos /inscripciones y /mis-inscripciones`);
+    for (const pg of ['inscripciones', 'mis-inscripciones']) {
+      const p = path.join(destFront, `src/app/pages/${pg}`);
+      if (fs.existsSync(p)) fs.rmSync(p, { recursive: true, force: true });
     }
-
-    // seed_admin.js — crea un usuario ADMIN listo para iniciar sesión.
-    const seedAdminScript = `// ============================================================
-// SEED ADMIN — Producto: ${projectName}
-// Crea un usuario ADMIN para poder iniciar sesión de inmediato.
-// Uso: node scripts/seed_admin.js  [email] [password]
-// ============================================================
-const path = require('path');
-module.paths.unshift(path.join(__dirname, '..', 'backend', 'node_modules'));
-require('dotenv').config({ path: path.join(__dirname, '..', 'backend', '.env') });
-const bcrypt = require('bcryptjs');
-const { createDbClient } = require('@fabrica/node-core');
-
-const email = process.argv[2] || 'admin@admin.edu';
-const password = process.argv[3] || 'admin123';
-
-(async () => {
-  const client = createDbClient(process.env);
-  try {
-    await client.connect();
-    const hash = await bcrypt.hash(password, 10);
-    await client.query(
-      \`INSERT INTO usuarios (nombre, email, password, rol_id)
-       VALUES ($1, $2, $3, 1)
-       ON CONFLICT (email) DO UPDATE SET password = EXCLUDED.password\`,
-      ['Administrador', email, hash]
+    removeFromFile(
+      path.join(destFront, 'src/app/app.routes.ts'),
+      /\n\s*\{[^\n]*\n\s*path:\s*'inscripciones',[\s\S]*?\},/g
     );
-    console.log('✅ Admin listo:');
-    console.log('   Email:    ' + email);
-    console.log('   Password: ' + password);
-  } catch (e) {
-    console.error('❌ Error:', e.message);
-    console.error('   ¿Corriste antes el backend o node scripts/setup_db.js para crear las tablas?');
-    process.exit(1);
-  } finally {
-    await client.end();
+    removeFromFile(
+      path.join(destFront, 'src/app/app.routes.ts'),
+      /\n\s*\{[^\n]*\n\s*path:\s*'mis-inscripciones',[\s\S]*?\},/g
+    );
+  } else {
+    console.log(`  ➔ ${ok} CA-017 incluido`);
   }
-})();
-`;
-    fs.writeFileSync(path.join(scriptsDir, 'seed_admin.js'), seedAdminScript);
-    console.log(`  ✅ factory-config.json, .env y scripts/seed_admin.js generados`);
 
-    // =========================================================
-    // PASO 6: Generar README del producto
-    // =========================================================
-    const readmeContent = `# ${projectName}
+  // Actualizar factory-config.json del nuevo proyecto
+  const cfg = JSON.parse(fs.readFileSync(destConfig, 'utf8'));
+  OPTIONAL.forEach(a => { cfg.configuracion_nuevo_proyecto.core_assets[a.key] = sel[a.key]; });
+  cfg.fabrica.ruta_fabrica = __dirname;   // para que gestionar_assets.js pueda encontrar la fábrica
+  fs.writeFileSync(destConfig, JSON.stringify(cfg, null, 2));
 
-Producto derivado de la **Fábrica de Software Académico** (SPLE).
-
-## Core Assets activos
-
-| Core Asset | Estado |
-|-----------|--------|
-| CA-012 Auditoría | ${auditoriaOn ? '✅' : '❌'} |
-| CA-016 Materias | ${materiasOn ? '✅' : '❌'} |
-| CA-017 Inscripciones | ${inscripcionesOn ? '✅' : '❌'} |
-| CA-007 Registro | ${registroOn ? '✅' : '❌'} |
-
-## Inicio rápido — UN solo comando
-
-Las dependencias ya se instalaron al generar el producto. Solo necesitas que tu
-PostgreSQL esté corriendo (si usas Docker: \`docker start fabrica-pg\`).
-
-\`\`\`powershell
-npm start
-\`\`\`
-
-Eso hace TODO: crea la base de datos y las tablas, crea el admin y levanta
-backend + frontend a la vez.
-
-- **App:** http://localhost:4200
-- **Login:** \`admin@admin.edu\` / \`admin123\`
-
-## Añadir un módulo después (auditoría, materias, inscripciones)
-
-\`\`\`powershell
-cd ${projectName}
-node scripts/add-feature.js auditoria    # trae el frontend de GitHub + activa el toggle
-# reinicia el backend: la tabla del módulo se crea sola al arrancar
-\`\`\`
-
-## Librerías @fabrica/* (instaladas desde GitHub)
-
-- \`@fabrica/node-core\` — BD, JWT, Auditoría, Feature Toggles, setup de BD
-${materiasOn ? '- `@fabrica/academico` — Materias + Inscripciones' : ''}
-`;
-    fs.writeFileSync(path.join(targetDir, 'README.md'), readmeContent);
-
-    // =========================================================
-    // RESUMEN
-    // =========================================================
-    console.log(`\n🎉 ¡PRODUCTO ENSAMBLADO CON ÉXITO!`);
-    console.log(`${'='.repeat(60)}`);
-    // Copiar script de CLI add-feature.js
-    const addFeatureTemplatePath = path.join(__dirname, 'add-feature-template.js');
-    if (fs.existsSync(addFeatureTemplatePath)) {
-        console.log('📦 Copiando herramienta CLI (add-feature.js)...');
-        fs.copyFileSync(addFeatureTemplatePath, path.join(scriptsDir, 'add-feature.js'));
-    }
-
-    // =========================================================
-    // PASO 7: Instalar dependencias automáticamente
-    // =========================================================
-    if (SKIP_INSTALL) {
-        console.log(`\n⏭️  Instalación omitida (--no-install).`);
-    } else {
-        const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-        const steps = [
-            ['raíz (concurrently)', targetDir],
-            ['backend (+ librerías @fabrica/* de GitHub)', destBackend],
-            ['frontend (Angular)', destFrontend],
-        ];
-        for (const [label, dir] of steps) {
-            console.log(`\n📥 Instalando dependencias: ${label}...`);
-            try {
-                execSync(`${npm} install --no-audit --no-fund`, { cwd: dir, stdio: 'inherit' });
-            } catch (e) {
-                console.error(`  ⚠️  Falló la instalación en ${dir}. Podrás correrla a mano con "npm install".`);
-            }
-        }
-        console.log(`\n✅ Dependencias instaladas.`);
-    }
-
-    console.log(`\n🎉 ¡Producto generado en ${targetDir}!`);
-    console.log(`${'='.repeat(60)}`);
-    console.log(`\n▶️  PARA CORRER EL PRODUCTO (solo 1 comando):`);
-    console.log(`\n   cd ../${projectName}`);
-    console.log(`   npm start`);
-    console.log(`\n   (crea la BD + tablas, crea el admin y levanta backend + frontend)`);
-    console.log(`\n   Requisito: tu PostgreSQL debe estar corriendo.`);
-    console.log(`   Login:  admin@admin.edu  /  admin123   ·   App: http://localhost:4200`);
-    console.log(`\n   Añadir un módulo después:  node scripts/add-feature.js auditoria\n`);
-
-} catch (err) {
-    console.error("❌ Ocurrió un error al ensamblar el proyecto:", err);
+  // Actualizar environment.ts y environment.prod.ts con los feature flags
+  const envDir  = path.join(destFront, 'src/environments');
+  const envFiles = ['environment.ts', 'environment.prod.ts'];
+  for (const file of envFiles) {
+    const envPath = path.join(envDir, file);
+    if (!fs.existsSync(envPath)) continue;
+    const isProd = file.includes('prod');
+    const content = `export const environment = {\n  production: ${isProd},\n  apiUrl: 'http://localhost:4000',\n  features: {\n    registro: ${sel['CA-007_RegistroAbierto'] ?? true},       // CA-007\n    auditoria: ${sel['CA-012_ModeloAuditoria'] ?? false},     // CA-012\n    materias: ${sel['CA-016_ModuloMaterias'] ?? true},       // CA-016\n    inscripciones: ${sel['CA-017_ModuloInscripciones'] ?? true},  // CA-017\n  }\n};\n`;
+    fs.writeFileSync(envPath, content);
+  }
 }
+
+// ── Construir SQL según assets activos ───────────────────────────────────────
+function buildSchemaSQL(sel) {
+  const lines = fs.readFileSync(
+    path.join(__dirname, 'backend/database/schema.sql'), 'utf8'
+  ).split('\n');
+
+  const active = {
+    ROLES:         true,
+    USUARIOS:      true,
+    AUDITORIA:     !!(sel['CA-012_ModeloAuditoria']),
+    MATERIAS:      !!(sel['CA-016_ModuloMaterias']),
+    INSCRIPCIONES: !!(sel['CA-017_ModuloInscripciones']),
+  };
+
+  let include = true; // el encabezado del archivo siempre se incluye
+  const out   = [];
+
+  for (const line of lines) {
+    // Solo cambiar de módulo en líneas de encabezado "-- MÓDULO: ..."
+    if (/--\s+M[OÓ]DULO:/i.test(line)) {
+      const up = line.toUpperCase();
+      if      (up.includes('ROLES'))         include = active.ROLES;
+      else if (up.includes('USUARIOS'))      include = active.USUARIOS;
+      else if (up.includes('AUDIT'))         include = active.AUDITORIA;
+      else if (up.includes('MATERIAS'))      include = active.MATERIAS;
+      else if (up.includes('INSCRIPCIONES')) include = active.INSCRIPCIONES;
+    }
+    if (include) out.push(line);
+  }
+
+  return out.join('\n');
+}
+
+// ── Crear base de datos local ─────────────────────────────────────────────────
+async function setupDatabase(dbName, pgHost, pgPort, pgUser, pgPassword, sel) {
+  const { Client } = require('pg');
+
+  // 1. Conectar al servidor como admin y crear la BD
+  const admin = new Client({
+    host: pgHost, port: parseInt(pgPort),
+    user: pgUser, password: pgPassword,
+    database: 'postgres',
+  });
+  await admin.connect();
+  const { rows } = await admin.query(`SELECT 1 FROM pg_database WHERE datname = $1`, [dbName]);
+  if (rows.length === 0) {
+    await admin.query(`CREATE DATABASE "${dbName}"`);
+  }
+  await admin.end();
+
+  // 2. Conectar a la nueva BD y aplicar solo las tablas de los assets activos
+  const db = new Client({
+    host: pgHost, port: parseInt(pgPort),
+    user: pgUser, password: pgPassword,
+    database: dbName,
+  });
+  await db.connect();
+  await db.query(buildSchemaSQL(sel));
+  await db.end();
+}
+
+// ── MAIN ──────────────────────────────────────────────────────────────────────
+async function main() {
+  console.clear();
+  printBanner();
+
+  // 1. Nombre del proyecto
+  const rawName  = await ask(`  ${C.bold}Nombre del nuevo proyecto${C.reset} [NuevoProyecto]: `);
+  const projName = rawName.trim() || 'NuevoProyecto';
+  const targetDir = path.join(__dirname, '..', projName);
+
+  if (fs.existsSync(targetDir)) {
+    console.log(`\n  ${C.red}❌ Error: Ya existe un directorio llamado "${projName}".${C.reset}\n`);
+    rl.close(); return;
+  }
+
+  // 2. Contraseña de PostgreSQL local (se guarda en .factory-local.json para no volver a preguntar)
+  const pgHost = 'localhost';
+  const pgPort = '5432';
+  const pgUser = 'postgres';
+  const localCfgPath = path.join(__dirname, '.factory-local.json');
+  let localCfg = {};
+  if (fs.existsSync(localCfgPath)) {
+    try { localCfg = JSON.parse(fs.readFileSync(localCfgPath, 'utf8')); } catch {}
+  }
+  let pgPass = localCfg.pg_password || '';
+  if (!pgPass) {
+    pgPass = (await ask(`\n  ${C.bold}🔑 Contraseña de tu PostgreSQL local${C.reset} ${C.dim}(usuario 'postgres')${C.reset}: `)).trim();
+    localCfg.pg_password = pgPass;
+    fs.writeFileSync(localCfgPath, JSON.stringify(localCfg, null, 2));
+    console.log(`  ${C.dim}✓ Contraseña guardada en .factory-local.json (no se volverá a pedir)${C.reset}`);
+  }
+
+  // 3. Selección interactiva
+  const sel = {};
+  OPTIONAL.forEach(a => { sel[a.key] = a.default; });
+
+  while (true) {
+    renderMenu(sel);
+    const input = (await ask(`\n  Selección > `)).trim();
+
+    if (input === '') break;
+
+    const idx = parseInt(input, 10) - 1;
+    if (isNaN(idx) || idx < 0 || idx >= OPTIONAL.length) {
+      await ask(`  ${C.red}Opción inválida.${C.reset} Presiona Enter...`);
+      continue;
+    }
+
+    const key = OPTIONAL[idx].key;
+    sel[key] = !sel[key];
+
+    // Reglas de dependencia
+    if (key === 'CA-016_ModuloMaterias' && !sel[key] && sel['CA-017_ModuloInscripciones']) {
+      sel['CA-017_ModuloInscripciones'] = false;
+      await ask(`  ${warn}CA-017 desactivado automáticamente (requiere CA-016). Enter...`);
+    }
+    if (key === 'CA-017_ModuloInscripciones' && sel[key] && !sel['CA-016_ModuloMaterias']) {
+      sel['CA-016_ModuloMaterias'] = true;
+      await ask(`  ${warn}CA-016 activado automáticamente (CA-017 lo requiere). Enter...`);
+    }
+  }
+
+  // 4. Confirmación final
+  renderMenu(sel);
+  const activeList = OPTIONAL.filter(a => sel[a.key]).map(a => a.key.split('_')[0]);
+  console.log(`\n  Proyecto : ${C.bold}${C.cyan}${projName}${C.reset}`);
+  console.log(`  Destino  : ${C.dim}${targetDir}${C.reset}`);
+  console.log(`  Assets   : ${C.green}${activeList.join(', ')} + todos los obligatorios${C.reset}\n`);
+
+  const confirm = (await ask(`  ¿Crear este proyecto? (${C.green}s${C.reset}/${C.red}n${C.reset}): `)).trim().toLowerCase();
+  if (confirm !== 's') {
+    console.log(`\n  ${C.yellow}Cancelado.${C.reset}\n`);
+    rl.close(); return;
+  }
+
+  console.log('\n');
+  rl.close();
+
+  // 5. Ensamblaje
+  const config    = JSON.parse(fs.readFileSync(path.join(__dirname, 'factory-config.json'), 'utf8'));
+  const destFront = path.join(targetDir, 'frontend');
+  const destBack  = path.join(targetDir, 'backend');
+  const destPkgs  = path.join(targetDir, 'packages');
+  const destCfg   = path.join(targetDir, 'factory-config.json');
+
+  console.log(`  ${C.bold}📦 1. Extrayendo Core Assets base...${C.reset}`);
+  fs.mkdirSync(targetDir);
+  copyRecursiveSync(path.join(__dirname, config.fabrica.rutas_core_assets.frontend), destFront);
+  copyRecursiveSync(path.join(__dirname, config.fabrica.rutas_core_assets.backend),  destBack);
+  copyRecursiveSync(path.join(__dirname, config.fabrica.rutas_core_assets.packages), destPkgs);
+  fs.copyFileSync(path.join(__dirname, 'package.json'),          path.join(targetDir, 'package.json'));
+  fs.copyFileSync(path.join(__dirname, 'factory-config.json'),   destCfg);
+  fs.copyFileSync(path.join(__dirname, 'gestionar_assets.js'),   path.join(targetDir, 'gestionar_assets.js'));
+  console.log(`  ${ok} Código base extraído.`);
+
+  console.log(`\n  ${C.bold}🎛️  2. Aplicando Core Assets seleccionados...${C.reset}`);
+  applyPruning(sel, destFront, destBack, destCfg);
+
+  console.log(`\n  ${C.bold}⚙️  3. Generando .env...${C.reset}`);
+  const dbName = `bd_${projName.toLowerCase().replace(/[\s-]+/g, '_')}`;
+  const envContent = [
+    `DB_HOST=${pgHost}`,
+    `DB_PORT=${pgPort}`,
+    `DB_NAME=${dbName}`,
+    `DB_USER=${pgUser}`,
+    `DB_PASSWORD=${pgPass}`,
+    `JWT_SECRET=${projName.toLowerCase()}_secret_${Date.now()}`,
+    `PORT=${config.configuracion_nuevo_proyecto.entorno.puerto_backend}`,
+    `AUDITORIA_ENABLED=${sel['CA-012_ModeloAuditoria'] ? 'true' : 'false'}`,
+  ].join('\n');
+  fs.writeFileSync(path.join(destBack, '.env'), envContent);
+  console.log(`  ${ok} .env inyectado (BD local: ${dbName}).`);
+
+  console.log(`\n  ${C.bold}🗄️  4. Creando base de datos "${dbName}"...${C.reset}`);
+  try {
+    await setupDatabase(dbName, pgHost, pgPort, pgUser, pgPass, sel);
+    console.log(`  ${ok} Base de datos lista y schema aplicado.`);
+  } catch (err) {
+    console.log(`  ${warn}No se pudo crear la BD: ${C.red}${err.message}${C.reset}`);
+    console.log(`  ${C.dim}↳ Cuando tengas PostgreSQL corriendo, ejecuta:`);
+    console.log(`     cd ../${projName}/backend && npm run db:setup${C.reset}`);
+  }
+
+  console.log(`
+${C.green}${C.bold}  ╔═══════════════════════════════════════════════════════╗
+  ║          🎉  ¡PROYECTO ENSAMBLADO CON ÉXITO!         ║
+  ╚═══════════════════════════════════════════════════════╝${C.reset}
+
+  ${C.bold}Directorio:${C.reset} ${targetDir}
+
+  ${C.bold}Próximos pasos:${C.reset}
+  ${C.dim}1.${C.reset} cd ../${projName}/backend  && npm install && npm run dev
+  ${C.dim}2.${C.reset} cd ../${projName}/frontend && npm install && npm start
+
+  ${C.dim}Si la BD no se creó automáticamente:${C.reset}
+  ${C.cyan}  cd ../${projName}/backend && npm run db:setup${C.reset}
+  ${C.dim}  Para resetear la BD desde cero: npm run db:reset${C.reset}
+
+  ${C.dim}Para gestionar Core Assets más tarde:${C.reset}
+  ${C.cyan}  node gestionar_assets.js ../${projName}${C.reset}
+  ${C.dim}  (o ejecuta gestionar_assets.js desde dentro del nuevo proyecto)${C.reset}
+`);
+}
+
+main().catch(err => { console.error('\n  ❌ Error inesperado:', err.message); process.exit(1); });

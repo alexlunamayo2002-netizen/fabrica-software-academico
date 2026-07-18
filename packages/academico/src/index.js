@@ -1,30 +1,20 @@
-// ============================================================
-// @fabrica/academico · Módulo componible del dominio académico
-//   CA-016 Materias  ·  CA-017 Inscripciones
-// ============================================================
-const { createMateriaModel } = require('./materia.model');
-const { createInscripcionModel } = require('./inscripcion.model');
-const { academicoTypeDefs } = require('./typeDefs');
-const { buildAcademicoResolvers } = require('./resolvers');
-const { ensureMateriasTable, ensureInscripcionesTable } = require('./db-schema');
+const { Materia } = require('./models/Materia');
+const { Inscripcion } = require('./models/Inscripcion');
 
-/**
- * Crea el módulo académico listo para componer con el esquema base.
- * @param {object} deps
- * @param {import('pg').Client} deps.client - cliente PostgreSQL
- * @param {object} deps.usuarioModel - modelo de Usuario (findById) del producto
- * @param {object} [deps.auditoria] - modelo de auditoría (o no-op si CA-012 off)
- * @returns {{ typeDefs: string, resolvers: object, models: object }}
- */
-function createAcademicoModule({ client, usuarioModel, auditoria }) {
-  const Materia = createMateriaModel(client);
-  const Inscripcion = createInscripcionModel(client);
-  const audit = auditoria || { registrar: async () => null };
-  return {
-    typeDefs: academicoTypeDefs,
-    resolvers: buildAcademicoResolvers({ Materia, Inscripcion, Usuario: usuarioModel, auditoria: audit }),
-    models: { Materia, Inscripcion },
-  };
-}
+// Sub-módulo por CA-016: Materias
+const materias = {
+  typeDefs:  require('./schema/materias.typeDefs').typeDefs,
+  resolvers: require('./resolvers/materias').resolvers,
+};
 
-module.exports = { createAcademicoModule, ensureMateriasTable, ensureInscripcionesTable };
+// Sub-módulo por CA-017: Inscripciones (depende de CA-016 por tipo Materia)
+const inscripciones = {
+  typeDefs:  require('./schema/inscripciones.typeDefs').typeDefs,
+  resolvers: require('./resolvers/inscripciones').resolvers,
+};
+
+// Exports completos (ambos CAs activos)
+const { typeDefs } = require('./schema/typeDefs');
+const { resolvers } = require('./resolvers/index');
+
+module.exports = { Materia, Inscripcion, typeDefs, resolvers, materias, inscripciones };

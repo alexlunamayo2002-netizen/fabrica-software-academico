@@ -1,64 +1,107 @@
-import { Injectable, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
-import { GraphqlService } from './graphql.service';
-import { Inscripcion } from '../models/inscripcion.model';
-import { Usuario } from '../models/user.model';
+import { Injectable } from '@angular/core';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Observable, switchMap, throwError, of } from 'rxjs';
+import { Inscripcion, Usuario } from '../models/user.model';
+import { environment } from '../../environments/environment';
 
-// CA-017 · Servicio de Inscripciones (Sprint 2 · HU-S2.4)
 @Injectable({ providedIn: 'root' })
 export class InscripcionService {
-  private gql = inject(GraphqlService);
+  private apiUrl = environment.apiUrl;
 
-  private readonly INSCRIPCION_FIELDS = `
-    id estado fechaInscripcion
-    estudiante { id nombre email }
-    materia { id codigo nombre creditos }
-  `;
+  constructor(private http: HttpClient) {}
 
-  listar(): Observable<Inscripcion[]> {
-    const query = `query { inscripciones { ${this.INSCRIPCION_FIELDS} } }`;
-    return this.gql.request<{ inscripciones: Inscripcion[] }>(query).pipe(map(d => d.inscripciones));
+  private getHeaders(): HttpHeaders {
+    const token = localStorage.getItem('token');
+    return new HttpHeaders({ Authorization: token ? `Bearer ${token}` : '' });
   }
 
-  porEstudiante(estudianteId: string): Observable<Inscripcion[]> {
-    const query = `
-      query PorEstudiante($estudianteId: ID!) {
-        inscripcionesByEstudiante(estudianteId: $estudianteId) { ${this.INSCRIPCION_FIELDS} }
-      }`;
-    return this.gql
-      .request<{ inscripcionesByEstudiante: Inscripcion[] }>(query, { estudianteId })
-      .pipe(map(d => d.inscripcionesByEstudiante));
+  private post(query: string, variables?: object): Observable<any> {
+    return this.http.post<any>(this.apiUrl, { query, variables }, { headers: this.getHeaders() });
+  }
+
+  getInscripciones(): Observable<Inscripcion[]> {
+    const query = `{
+      inscripciones {
+        id fechaInscripcion
+        estudiante { id nombre email }
+        materia { id codigo nombre creditos }
+      }
+    }`;
+    return this.post(query).pipe(
+      switchMap(res => {
+        if (res.errors) return throwError(() => new Error(res.errors[0].message));
+        return of(res.data.inscripciones as Inscripcion[]);
+      })
+    );
+  }
+
+  getPorEstudiante(estudianteId: string): Observable<Inscripcion[]> {
+    const query = `query($estudianteId: ID!) {
+      inscripcionesPorEstudiante(estudianteId: $estudianteId) {
+        id fechaInscripcion
+        estudiante { id nombre email }
+        materia { id codigo nombre creditos }
+      }
+    }`;
+    return this.post(query, { estudianteId }).pipe(
+      switchMap(res => {
+        if (res.errors) return throwError(() => new Error(res.errors[0].message));
+        return of(res.data.inscripcionesPorEstudiante as Inscripcion[]);
+      })
+    );
+  }
+
+  getPorMateria(materiaId: string): Observable<Inscripcion[]> {
+    const query = `query($materiaId: ID!) {
+      inscripcionesPorMateria(materiaId: $materiaId) {
+        id fechaInscripcion
+        estudiante { id nombre email }
+        materia { id codigo nombre creditos }
+      }
+    }`;
+    return this.post(query, { materiaId }).pipe(
+      switchMap(res => {
+        if (res.errors) return throwError(() => new Error(res.errors[0].message));
+        return of(res.data.inscripcionesPorMateria as Inscripcion[]);
+      })
+    );
   }
 
   inscribir(estudianteId: string, materiaId: string): Observable<Inscripcion> {
-    const query = `
-      mutation Inscribir($estudianteId: ID!, $materiaId: ID!) {
-        inscribir(estudianteId: $estudianteId, materiaId: $materiaId) { ${this.INSCRIPCION_FIELDS} }
-      }`;
-    return this.gql
-      .request<{ inscribir: Inscripcion }>(query, { estudianteId, materiaId })
-      .pipe(map(d => d.inscribir));
+    const query = `mutation($estudianteId: ID!, $materiaId: ID!) {
+      inscribir(estudianteId: $estudianteId, materiaId: $materiaId) {
+        id fechaInscripcion
+        estudiante { id nombre email }
+        materia { id codigo nombre creditos }
+      }
+    }`;
+    return this.post(query, { estudianteId, materiaId }).pipe(
+      switchMap(res => {
+        if (res.errors) return throwError(() => new Error(res.errors[0].message));
+        return of(res.data.inscribir as Inscripcion);
+      })
+    );
   }
 
   desinscribir(estudianteId: string, materiaId: string): Observable<boolean> {
-    const query = `
-      mutation Desinscribir($estudianteId: ID!, $materiaId: ID!) {
-        desinscribir(estudianteId: $estudianteId, materiaId: $materiaId)
-      }`;
-    return this.gql
-      .request<{ desinscribir: boolean }>(query, { estudianteId, materiaId })
-      .pipe(map(d => d.desinscribir));
+    const query = `mutation($estudianteId: ID!, $materiaId: ID!) {
+      desinscribir(estudianteId: $estudianteId, materiaId: $materiaId)
+    }`;
+    return this.post(query, { estudianteId, materiaId }).pipe(
+      switchMap(res => {
+        if (res.errors) return throwError(() => new Error(res.errors[0].message));
+        return of(res.data.desinscribir as boolean);
+      })
+    );
   }
 
-  // Listado de estudiantes (rol ESTUDIANTE) para el selector de inscripción
-  estudiantes(): Observable<Usuario[]> {
-    const query = `query { usuarios { id nombre email rol { nombre } } }`;
-    return this.gql.request<{ usuarios: any[] }>(query).pipe(
-      map(d =>
-        d.usuarios
-          .filter(u => u.rol?.nombre === 'ESTUDIANTE')
-          .map(u => ({ id: u.id, nombre: u.nombre, email: u.email, rol: u.rol.nombre }))
-      )
+  getUsuarios(): Observable<Usuario[]> {
+    const query = `{ usuarios { id nombre email rol { nombre } } }`;
+    return this.post(query).pipe(
+      switchMap(res => {
+        if (res.errors) return throwError(() => new Error(res.errors[0].message));
+        return of(res.data.usuarios as Usuario[]);
+      })
     );
   }
 }

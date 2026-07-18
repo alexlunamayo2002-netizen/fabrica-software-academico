@@ -1,3 +1,40 @@
-/* CA-012 · Visor de Auditoría — estilos específicos.
-   Estilos base compartidos desde styles.scss */
-:host { display: block; }
+@import '../admin-panel/admin-panel.component.scss';
+
+.auditoria-layout { @extend .admin-layout; }
+
+.audit-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th, td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.875rem;
+  }
+
+  th { font-weight: 600; color: var(--text-secondary); }
+
+  tr:hover td { background: var(--hover-bg); }
+}
+
+.accion-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+
+  &.green  { background: #d1fae5; color: #065f46; }
+  &.blue   { background: #dbeafe; color: #1e40af; }
+  &.red    { background: #fee2e2; color: #991b1b; }
+  &.purple { background: #ede9fe; color: #5b21b6; }
+  &.gray   { background: #f3f4f6; color: #374151; }
+}
+
+.detalles-cell { max-width: 280px; word-break: break-word; }
+.ip-cell       { font-family: monospace; font-size: 0.8rem; }
+.fecha-cell    { white-space: nowrap; font-size: 0.8rem; color: var(--text-secondary); }
+.id-cell       { color: var(--text-secondary); font-size: 0.8rem; }
+.dim           { color: var(--text-secondary); }

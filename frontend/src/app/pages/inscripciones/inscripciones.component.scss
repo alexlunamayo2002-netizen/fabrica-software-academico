@@ -1,5 +1,366 @@
-/* CA-017 · Inscripciones — estilos específicos.
-   Estilos base compartidos desde styles.scss */
-:host {
+.ins-layout {
+  min-height: 100vh;
+  background-color: var(--bg-color);
+}
+
+/* ── Topbar ── */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background-color: var(--surface-color);
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+
+    .btn-back {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-secondary); padding: 0.4rem;
+      border-radius: var(--radius-md); display: flex; align-items: center;
+      transition: all 0.2s;
+      &:hover { background: var(--bg-color); color: var(--primary-color); }
+    }
+
+    .logo {
+      width: 36px; height: 36px;
+      background: var(--primary-color); color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; border-radius: var(--radius-md); font-size: 1rem;
+    }
+
+    h1 { font-size: 1.125rem; margin: 0; color: var(--text-primary); }
+  }
+
+  .user-profile {
+    display: flex; align-items: center; gap: 0.75rem;
+    .avatar {
+      width: 36px; height: 36px; background: var(--secondary-color); color: white;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-weight: 600; font-size: 0.875rem;
+    }
+    .name { font-size: 0.875rem; font-weight: 500; }
+    .btn-logout {
+      background: none; border: none; cursor: pointer; color: var(--text-secondary);
+      padding: 0.4rem; border-radius: var(--radius-md); display: flex; align-items: center;
+      transition: all 0.2s;
+      &:hover { background: rgba(220,38,38,.1); color: var(--error-color); }
+    }
+  }
+}
+
+/* ── Content ── */
+.content {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ── Alert ── */
+.alert-error {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.75rem 1rem; margin-bottom: 1.25rem;
+  background: #fef2f2; border: 1px solid #fecaca;
+  border-radius: var(--radius-md); color: #dc2626; font-size: 0.875rem;
+  button { margin-left: auto; background: none; border: none; cursor: pointer; color: inherit; font-size: 1.25rem; }
+}
+
+/* ── Two column layout ── */
+.two-col {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 1.5rem;
+  align-items: start;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Panel izquierdo ── */
+.panel-form {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
+
+  h3 {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 1rem; margin: 0 0 1.25rem; color: var(--text-primary);
+  }
+}
+
+.inscribir-form { display: flex; flex-direction: column; gap: 1rem; }
+
+.form-group {
+  display: flex; flex-direction: column; gap: 0.375rem;
+
+  label { font-size: 0.875rem; font-weight: 500; }
+  .required { color: #dc2626; }
+
+  select {
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    background: var(--bg-color);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: border-color 0.15s;
+    &:focus { outline: none; border-color: var(--primary-color); }
+    &.invalid { border-color: #dc2626; }
+  }
+}
+
+.field-error { font-size: 0.75rem; color: #dc2626; }
+
+.quick-links {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border-color);
+
+  .section-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin: 0 0 0.75rem; }
+}
+
+.quick-link {
   display: block;
+  padding: 0.625rem 0.875rem;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: all 0.15s;
+  &:hover { border-color: var(--primary-color); color: var(--primary-color); }
+}
+
+/* ── Panel derecho ── */
+.panel-table {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.table-header {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+
+  h3 { margin: 0; font-size: 1rem; }
+}
+
+.count-badge {
+  background: var(--primary-color); color: white;
+  border-radius: 1rem; padding: 0.1rem 0.6rem;
+  font-size: 0.75rem; font-weight: 700;
+}
+
+/* ── Filtros ── */
+.filtros {
+  display: flex; gap: 0.5rem;
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.filtro-btn {
+  padding: 0.4rem 0.875rem;
+  border: 1px solid var(--border-color);
+  border-radius: 1rem;
+  background: none;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+
+  &.active, &:hover {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+  }
+}
+
+.filtro-select {
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+
+  select {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    background: var(--bg-color);
+    color: var(--text-primary);
+    &:focus { outline: none; border-color: var(--primary-color); }
+  }
+}
+
+/* ── Table ── */
+.table-wrapper { overflow-x: auto; }
+
+.ins-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-size: 0.75rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    background: var(--bg-color);
+    border-bottom: 1px solid var(--border-color);
+    &.center { text-align: center; }
+  }
+
+  td {
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.875rem;
+    &.center { text-align: center; }
+    &.fecha { color: var(--text-secondary); font-size: 0.8rem; white-space: nowrap; }
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--bg-color); }
+}
+
+.user-cell {
+  display: flex; align-items: center; gap: 0.625rem;
+}
+
+.mini-avatar {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--secondary-color); color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; font-weight: 700; flex-shrink: 0;
+}
+
+.cell-name { font-weight: 500; line-height: 1.2; }
+.cell-sub  { font-size: 0.75rem; color: var(--text-secondary); }
+
+.badge-codigo {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  background: #eff6ff; color: #2563eb;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-sm);
+  font-size: 0.7rem; font-weight: 600; font-family: monospace;
+}
+
+.materia-nombre { font-size: 0.875rem; color: var(--text-primary); }
+
+.badge-creditos {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px;
+  background: #f0fdf4; color: #16a34a;
+  border: 1px solid #bbf7d0;
+  border-radius: 50%; font-size: 0.75rem; font-weight: 700;
+}
+
+.btn-desinscribir {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.35rem 0.75rem;
+  background: none;
+  border: 1px solid #fecaca; border-radius: var(--radius-sm);
+  color: #dc2626; font-size: 0.75rem; cursor: pointer;
+  transition: all 0.15s;
+  &:hover { background: #fef2f2; }
+}
+
+/* ── Loading / Empty ── */
+.loading-state {
+  display: flex; flex-direction: column; align-items: center; gap: 0.75rem;
+  padding: 3rem; color: var(--text-secondary);
+}
+
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; gap: 0.75rem;
+  padding: 3rem; color: var(--text-secondary); text-align: center;
+  svg { opacity: 0.35; }
+  p { margin: 0; font-size: 0.875rem; }
+}
+
+/* ── Buttons ── */
+.btn-primary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+  padding: 0.625rem 1.25rem;
+  background: var(--primary-color); color: white;
+  border: none; border-radius: var(--radius-md);
+  font-weight: 600; font-size: 0.875rem; cursor: pointer;
+  transition: all 0.2s;
+  &:hover:not(:disabled) { opacity: 0.9; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+  &.w-full { width: 100%; }
+}
+
+.btn-secondary {
+  padding: 0.625rem 1.25rem;
+  background: var(--surface-color); color: var(--text-primary);
+  border: 1px solid var(--border-color); border-radius: var(--radius-md);
+  font-weight: 500; font-size: 0.875rem; cursor: pointer; transition: all 0.2s;
+  &:hover { background: var(--bg-color); }
+}
+
+.btn-danger {
+  padding: 0.625rem 1.25rem;
+  background: #dc2626; color: white;
+  border: none; border-radius: var(--radius-md);
+  font-weight: 600; font-size: 0.875rem; cursor: pointer; transition: all 0.2s;
+  &:hover { background: #b91c1c; }
+}
+
+.spinner-sm {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.4); border-top-color: white;
+  border-radius: 50%; animation: spin 0.7s linear infinite;
+}
+
+/* ── Modal ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 50; padding: 1rem;
+}
+
+.modal {
+  background: var(--surface-color);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 40px rgba(0,0,0,.2);
+  width: 100%; max-width: 400px;
+}
+
+.modal-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  h3 { margin: 0; font-size: 1rem; }
+  &.danger h3 { color: #dc2626; }
+}
+
+.modal-body {
+  padding: 1.25rem 1.5rem;
+  p { margin: 0; color: var(--text-secondary); font-size: 0.875rem; }
+}
+
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: 0.75rem;
+  padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);
 }

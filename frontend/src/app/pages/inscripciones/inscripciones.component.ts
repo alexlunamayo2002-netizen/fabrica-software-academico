@@ -1,15 +1,14 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
 import { InscripcionService } from '../../services/inscripcion.service';
 import { MateriaService } from '../../services/materia.service';
 import { AuthService } from '../../services/auth.service';
-import { Inscripcion } from '../../models/inscripcion.model';
-import { Materia } from '../../models/materia.model';
-import { Usuario, Role } from '../../models/user.model';
+import { Inscripcion, Materia, Usuario } from '../../models/user.model';
 
-// CA-017 · Componente de Inscripciones (Sprint 2 · HU-S2.4)
+type Filtro = 'todos' | 'estudiante' | 'materia';
+
 @Component({
   selector: 'app-inscripciones',
   standalone: true,
@@ -18,64 +17,114 @@ import { Usuario, Role } from '../../models/user.model';
   styleUrls: ['./inscripciones.component.scss']
 })
 export class InscripcionesComponent implements OnInit {
-  private inscripcionService = inject(InscripcionService);
-  private materiaService = inject(MateriaService);
-  private authService = inject(AuthService);
-  private fb = inject(FormBuilder);
+  inscripciones: Inscripcion[] = [];
+  materias: Materia[] = [];
+  usuarios: Usuario[] = [];
 
-  inscripciones = signal<Inscripcion[]>([]);
-  materias = signal<Materia[]>([]);
-  estudiantes = signal<Usuario[]>([]);
-  cargando = signal(false);
-  error = signal<string | null>(null);
-  ok = signal<string | null>(null);
+  loading = false;
+  savingForm = false;
+  error = '';
 
-  // ADMIN y DOCENTE pueden inscribir a cualquier estudiante
-  puedeGestionar = (): boolean => {
-    const rol = this.authService.getUserRole();
-    return rol === Role.ADMIN || rol === Role.DOCENTE;
-  };
+  filtroActivo: Filtro = 'todos';
+  filtroEstudianteId = '';
+  filtroMateriaId = '';
 
-  form = this.fb.group({
-    estudianteId: ['', Validators.required],
-    materiaId: ['', Validators.required]
-  });
+  deleteConfirm: { estudianteId: string; materiaId: string } | null = null;
+
+  form!: FormGroup;
+
+  constructor(
+    private inscripcionService: InscripcionService,
+    private materiaService: MateriaService,
+    private authService: AuthService,
+    private fb: FormBuilder,
+    private router: Router,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   ngOnInit() {
-    this.cargar();
+    this.form = this.fb.group({
+      estudianteId: ['', Validators.required],
+      materiaId:    ['', Validators.required]
+    });
+    this.loadCatalogos();
+    this.loadInscripciones();
   }
 
-  cargar() {
-    this.cargando.set(true);
-    this.error.set(null);
-    this.inscripcionService.listar().subscribe({
-      next: data => { this.inscripciones.set(data); this.cargando.set(false); },
-      error: err => { this.error.set(err.message); this.cargando.set(false); }
+  private loadCatalogos() {
+    this.materiaService.getMaterias().subscribe({ next: d => { this.materias = d; this.cdr.detectChanges(); } });
+    this.inscripcionService.getUsuarios().subscribe({ next: d => { this.usuarios = d; this.cdr.detectChanges(); } });
+  }
+
+  loadInscripciones() {
+    this.loading = true;
+    this.error = '';
+    let obs$;
+    if (this.filtroActivo === 'estudiante' && this.filtroEstudianteId) {
+      obs$ = this.inscripcionService.getPorEstudiante(this.filtroEstudianteId);
+    } else if (this.filtroActivo === 'materia' && this.filtroMateriaId) {
+      obs$ = this.inscripcionService.getPorMateria(this.filtroMateriaId);
+    } else {
+      obs$ = this.inscripcionService.getInscripciones();
+    }
+    obs$.subscribe({
+      next: d => { this.inscripciones = d; this.loading = false; this.cdr.detectChanges(); },
+      error: err => { this.error = err.message; this.loading = false; this.cdr.detectChanges(); }
     });
-    this.materiaService.listar().subscribe({ next: d => this.materias.set(d) });
-    this.inscripcionService.estudiantes().subscribe({ next: d => this.estudiantes.set(d) });
+  }
+
+  setFiltro(f: Filtro) {
+    this.filtroActivo = f;
+    if (f === 'todos') { this.filtroEstudianteId = ''; this.filtroMateriaId = ''; this.loadInscripciones(); }
+  }
+
+  onFiltroEstudiante(id: string) {
+    this.filtroEstudianteId = id;
+    if (id) this.loadInscripciones();
+  }
+
+  onFiltroMateria(id: string) {
+    this.filtroMateriaId = id;
+    if (id) this.loadInscripciones();
   }
 
   inscribir() {
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }
-    this.error.set(null); this.ok.set(null);
+    this.savingForm = true;
     const { estudianteId, materiaId } = this.form.value;
-    this.inscripcionService.inscribir(estudianteId!, materiaId!).subscribe({
+    this.inscripcionService.inscribir(estudianteId, materiaId).subscribe({
       next: () => {
-        this.ok.set('Estudiante inscrito correctamente.');
-        this.form.reset({ estudianteId: '', materiaId: '' });
-        this.cargar();
+        this.savingForm = false;
+        this.form.reset();
+        this.loadInscripciones();
+        this.cdr.detectChanges();
       },
-      error: err => this.error.set(err.message)
+      error: err => { this.error = err.message; this.savingForm = false; this.cdr.detectChanges(); }
     });
   }
 
-  desinscribir(i: Inscripcion) {
-    if (!confirm(`¿Desinscribir a ${i.estudiante.nombre} de ${i.materia.nombre}?`)) return;
-    this.error.set(null); this.ok.set(null);
-    this.inscripcionService.desinscribir(i.estudiante.id, i.materia.id).subscribe({
-      next: () => { this.ok.set('Estudiante desinscrito.'); this.cargar(); },
-      error: err => this.error.set(err.message)
+  confirmDesinscribir(estudianteId: string, materiaId: string) {
+    this.deleteConfirm = { estudianteId, materiaId };
+  }
+
+  cancelDesinscribir() { this.deleteConfirm = null; }
+
+  desinscribir() {
+    if (!this.deleteConfirm) return;
+    const { estudianteId, materiaId } = this.deleteConfirm;
+    this.deleteConfirm = null;
+    this.inscripcionService.desinscribir(estudianteId, materiaId).subscribe({
+      next: () => this.loadInscripciones(),
+      error: err => { this.error = err.message; }
     });
+  }
+
+  get user() { return this.authService.currentUser(); }
+
+  logout() { this.authService.logout(); this.router.navigate(['/login']); }
+  goBack()  { this.router.navigate(['/dashboard']); }
+
+  formatFecha(iso: string): string {
+    return new Date(iso).toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 }

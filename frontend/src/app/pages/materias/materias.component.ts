@@ -1,107 +1,125 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
 import { MateriaService } from '../../services/materia.service';
 import { AuthService } from '../../services/auth.service';
-import { Materia } from '../../models/materia.model';
-import { Role } from '../../models/user.model';
+import { Materia, Role } from '../../models/user.model';
 
-// CA-016 · Componente de Materias (Sprint 2 · HU-S2.2)
 @Component({
   selector: 'app-materias',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './materias.component.html',
   styleUrls: ['./materias.component.scss']
 })
 export class MateriasComponent implements OnInit {
-  private materiaService = inject(MateriaService);
-  private fb = inject(FormBuilder);
-  private authService = inject(AuthService);
+  materias: Materia[] = [];
+  loading = false;
+  error = '';
+  showForm = false;
+  editingId: string | null = null;
+  savingForm = false;
+  deleteConfirmId: string | null = null;
+  form!: FormGroup;
+  Role = Role;
 
-  materias = signal<Materia[]>([]);
-  cargando = signal(false);
-  error = signal<string | null>(null);
-  editandoId = signal<string | null>(null);
-  mostrarForm = signal(false);
+  get canCreate() { const r = this.user?.rol; return r === Role.ADMIN || r === Role.DOCENTE; }
+  get canEdit()   { const r = this.user?.rol; return r === Role.ADMIN || r === Role.DOCENTE; }
+  get canDelete() { return this.user?.rol === Role.ADMIN; }
 
-  // Solo ADMIN y DOCENTE pueden gestionar materias
-  puedeGestionar = (): boolean => {
-    const rol = this.authService.getUserRole();
-    return rol === Role.ADMIN || rol === Role.DOCENTE;
-  };
-  esAdmin = (): boolean => this.authService.getUserRole() === Role.ADMIN;
-
-  form = this.fb.group({
-    codigo: ['', [Validators.required, Validators.maxLength(20)]],
-    nombre: ['', [Validators.required, Validators.maxLength(150)]],
-    creditos: [0, [Validators.required, Validators.min(0), Validators.max(20)]],
-    descripcion: ['']
-  });
+  constructor(
+    private materiaService: MateriaService,
+    private authService: AuthService,
+    private fb: FormBuilder,
+    private router: Router,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   ngOnInit() {
-    this.cargar();
+    this.initForm();
+    this.loadMaterias();
   }
 
-  cargar() {
-    this.cargando.set(true);
-    this.error.set(null);
-    this.materiaService.listar().subscribe({
-      next: data => { this.materias.set(data); this.cargando.set(false); },
-      error: err => { this.error.set(err.message); this.cargando.set(false); }
+  private initForm(materia?: Materia) {
+    this.form = this.fb.group({
+      codigo:     [materia?.codigo     ?? '', [Validators.required, Validators.maxLength(20)]],
+      nombre:     [materia?.nombre     ?? '', [Validators.required, Validators.maxLength(150)]],
+      creditos:   [materia?.creditos   ?? 3,  [Validators.required, Validators.min(1), Validators.max(20)]],
+      descripcion:[materia?.descripcion ?? '']
     });
   }
 
-  nuevaMateria() {
-    this.editandoId.set(null);
-    this.form.reset({ codigo: '', nombre: '', creditos: 0, descripcion: '' });
-    this.mostrarForm.set(true);
-  }
-
-  editar(m: Materia) {
-    this.editandoId.set(m.id);
-    this.form.reset({
-      codigo: m.codigo,
-      nombre: m.nombre,
-      creditos: m.creditos,
-      descripcion: m.descripcion || ''
+  loadMaterias() {
+    this.loading = true;
+    this.error = '';
+    this.materiaService.getMaterias().subscribe({
+      next: (data) => { this.materias = data; this.loading = false; this.cdr.detectChanges(); },
+      error: (err) => { this.error = err.message; this.loading = false; this.cdr.detectChanges(); }
     });
-    this.mostrarForm.set(true);
   }
 
-  cancelar() {
-    this.mostrarForm.set(false);
-    this.editandoId.set(null);
+  openCreate() {
+    this.editingId = null;
+    this.initForm();
+    this.showForm = true;
   }
 
-  guardar() {
+  openEdit(materia: Materia) {
+    this.editingId = materia.id;
+    this.initForm(materia);
+    this.showForm = true;
+  }
+
+  closeForm() {
+    this.showForm = false;
+    this.editingId = null;
+  }
+
+  save() {
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }
-    this.error.set(null);
-    const input = {
-      codigo: this.form.value.codigo!,
-      nombre: this.form.value.nombre!,
-      creditos: Number(this.form.value.creditos),
-      descripcion: this.form.value.descripcion || undefined
-    };
+    this.savingForm = true;
+    const { codigo, nombre, creditos, descripcion } = this.form.value;
 
-    const id = this.editandoId();
-    const op = id
-      ? this.materiaService.actualizar(id, input)
-      : this.materiaService.crear(input);
+    const op$ = this.editingId
+      ? this.materiaService.actualizarMateria(this.editingId, { codigo, nombre, creditos, descripcion: descripcion || undefined })
+      : this.materiaService.crearMateria(codigo, nombre, creditos, descripcion || undefined);
 
-    op.subscribe({
-      next: () => { this.mostrarForm.set(false); this.cargar(); },
-      error: err => this.error.set(err.message)
+    op$.subscribe({
+      next: () => { this.savingForm = false; this.closeForm(); this.loadMaterias(); this.cdr.detectChanges(); },
+      error: (err) => { this.error = err.message; this.savingForm = false; this.cdr.detectChanges(); }
     });
   }
 
-  eliminar(m: Materia) {
-    if (!confirm(`¿Eliminar la materia "${m.nombre}" (${m.codigo})?`)) return;
-    this.error.set(null);
-    this.materiaService.eliminar(m.id).subscribe({
-      next: () => this.cargar(),
-      error: err => this.error.set(err.message)
+  confirmDelete(id: string) { this.deleteConfirmId = id; }
+  cancelDelete() { this.deleteConfirmId = null; }
+
+  delete() {
+    if (!this.deleteConfirmId) return;
+    const id = this.deleteConfirmId;
+    this.deleteConfirmId = null;
+    this.materiaService.eliminarMateria(id).subscribe({
+      next: () => this.loadMaterias(),
+      error: (err) => { this.error = err.message; }
     });
+  }
+
+  get user() { return this.authService.currentUser(); }
+
+  logout() {
+    this.authService.logout();
+    this.router.navigate(['/login']);
+  }
+
+  goBack() { this.router.navigate(['/dashboard']); }
+
+  fieldError(field: string): string {
+    const c = this.form.get(field);
+    if (!c || !c.touched || !c.errors) return '';
+    if (c.errors['required'])  return 'Este campo es obligatorio.';
+    if (c.errors['maxlength']) return `Máximo ${c.errors['maxlength'].requiredLength} caracteres.`;
+    if (c.errors['min'])       return `Mínimo ${c.errors['min'].min}.`;
+    if (c.errors['max'])       return `Máximo ${c.errors['max'].max}.`;
+    return '';
   }
 }

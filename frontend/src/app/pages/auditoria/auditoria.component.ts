@@ -1,72 +1,51 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
-import { GraphqlService } from '../../services/graphql.service';
+import { Router } from '@angular/router';
+import { AuditoriaService, AuditoriaEvento } from '../../services/auditoria.service';
+import { AuthService } from '../../services/auth.service';
 
-interface EventoAuditoria {
-  id: string;
-  accion: string;
-  entidad?: string;
-  detalles?: string;
-  ipAddress?: string;
-  fechaHora: string;
-  usuarioNombre?: string;
-  usuarioEmail?: string;
-}
-
-// CA-012 · Visor de Auditoría (frontend)
-// Muestra los eventos registrados por el Core Asset de Auditoría.
 @Component({
   selector: 'app-auditoria',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule],
   templateUrl: './auditoria.component.html',
   styleUrls: ['./auditoria.component.scss']
 })
 export class AuditoriaComponent implements OnInit {
-  private gql = inject(GraphqlService);
+  eventos: AuditoriaEvento[] = [];
+  loading = true;
+  error = '';
 
-  eventos = signal<EventoAuditoria[]>([]);
-  cargando = signal(false);
-  error = signal<string | null>(null);
-  filtroAccion = signal<string>('');
+  constructor(
+    private auditoriaService: AuditoriaService,
+    private authService: AuthService,
+    private router: Router,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   ngOnInit() {
-    this.cargar();
-  }
-
-  cargar() {
-    this.cargando.set(true);
-    this.error.set(null);
-    const query = `
-      query Auditoria($limit: Int) {
-        auditoria(limit: $limit) {
-          id accion entidad detalles ipAddress fechaHora usuarioNombre usuarioEmail
-        }
-      }`;
-    this.gql.request<{ auditoria: EventoAuditoria[] }>(query, { limit: 100 }).subscribe({
-      next: d => { this.eventos.set(d.auditoria); this.cargando.set(false); },
-      error: err => { this.error.set(err.message); this.cargando.set(false); }
+    this.auditoriaService.getAuditoria(100, 0).subscribe({
+      next: d => { this.eventos = d; this.loading = false; this.cdr.detectChanges(); },
+      error: err => { this.error = err.message; this.loading = false; this.cdr.detectChanges(); }
     });
   }
 
-  eventosFiltrados(): EventoAuditoria[] {
-    const filtro = this.filtroAccion();
-    if (!filtro) return this.eventos();
-    return this.eventos().filter(e => e.accion === filtro);
+  formatFecha(iso: string): string {
+    return new Date(iso).toLocaleString('es-EC', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
   }
 
-  accionesUnicas(): string[] {
-    return [...new Set(this.eventos().map(e => e.accion))].sort();
+  accionColor(accion: string): string {
+    const map: Record<string, string> = {
+      LOGIN: 'green', LOGOUT: 'blue',
+      LOGIN_FALLIDO: 'red', REGISTRO: 'purple'
+    };
+    return map[accion] ?? 'gray';
   }
 
-  setFiltro(accion: string) {
-    this.filtroAccion.set(this.filtroAccion() === accion ? '' : accion);
-  }
-
-  claseAccion(accion: string): string {
-    if (accion.includes('FALLIDO') || accion.startsWith('ELIMINAR')) return 'danger';
-    if (accion === 'LOGIN' || accion === 'REGISTRO' || accion.startsWith('CREAR')) return 'ok';
-    return 'neutral';
-  }
+  get user() { return this.authService.currentUser(); }
+  logout()   { this.authService.logout(); this.router.navigate(['/login']); }
+  goBack()   { this.router.navigate(['/admin']); }
 }

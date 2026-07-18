@@ -1,11 +1,11 @@
 {
   "name": "@fabrica/angular-auth",
-  "version": "2.0.0",
-  "description": "Core Assets de autenticación para Angular: Login (CA-006), Registro (CA-007), AuthService (CA-003), AuthGuard (CA-004), RoleGuard (CA-005) y modelo de usuario (CA-002).",
-  "keywords": ["fabrica", "core-asset", "angular", "auth", "jwt"],
+  "version": "1.0.0",
+  "description": "Librería Angular: guards, auth service y login/registro components",
+  "main": "src/index.ts",
   "peerDependencies": {
-    "@angular/core": ">=17",
-    "@angular/router": ">=17"
-  },
-  "license": "MIT"
+    "@angular/core": ">=19.0.0",
+    "@angular/common": ">=19.0.0",
+    "@angular/router": ">=19.0.0"
+  }
 }
