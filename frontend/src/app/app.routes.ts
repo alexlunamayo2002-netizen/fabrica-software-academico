@@ -4,17 +4,17 @@ import { roleGuard } from './guards/role.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
-  { 
-    path: 'login', 
-    loadComponent: () => import('./pages/login/login.component').then(c => c.LoginComponent) 
+  {
+    path: 'login',
+    loadComponent: () => import('./pages/login/login.component').then(c => c.LoginComponent)
   },
-  { 
-    path: 'registro', 
-    loadComponent: () => import('./pages/registro/registro.component').then(c => c.RegistroComponent) 
+  {
+    path: 'registro',
+    loadComponent: () => import('./pages/registro/registro.component').then(c => c.RegistroComponent)
   },
-  { 
-    path: 'recuperar-password', 
-    loadComponent: () => import('./pages/recuperar-password/recuperar-password.component').then(c => c.RecuperarPasswordComponent) 
+  {
+    path: 'recuperar-password',
+    loadComponent: () => import('./pages/recuperar-password/recuperar-password.component').then(c => c.RecuperarPasswordComponent)
   },
   {
     path: 'dashboard',
@@ -29,7 +29,14 @@ export const routes: Routes = [
   {
     path: 'inscripciones',
     loadComponent: () => import('./pages/inscripciones/inscripciones.component').then(c => c.InscripcionesComponent),
-    canActivate: [authGuard]
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ['ADMIN', 'DOCENTE'] }
+  },
+  {
+    path: 'mis-inscripciones',
+    loadComponent: () => import('./pages/mis-inscripciones/mis-inscripciones.component').then(c => c.MisInscripcionesComponent),
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ['ESTUDIANTE'] }
   },
   {
     path: 'admin',

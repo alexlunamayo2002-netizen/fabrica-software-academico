@@ -100,20 +100,6 @@ export class RegistroComponent {
       error: (err) => {
         this.isLoading = false;
         this.errorMessage = err.message || 'Error al registrar el usuario.';
-        
-        // TEMPORARY FOR DEMO (Backend throws "No implementado aún")
-        if (err.message && err.message.includes('No implementado')) {
-           const fakePayload = {
-             token: 'fake-jwt-token',
-             usuario: { id: '2', nombre, email, rol, createdAt: new Date().toISOString() }
-           };
-           localStorage.setItem('token', fakePayload.token);
-           localStorage.setItem('user', JSON.stringify(fakePayload.usuario));
-           this.authService.currentUser.set(fakePayload.usuario);
-           
-           this.successMessage = 'Registro simulado exitoso (backend stub).';
-           setTimeout(() => this.router.navigate(['/dashboard']), 1500);
-        }
       }
     });
   }

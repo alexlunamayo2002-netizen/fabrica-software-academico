@@ -60,3 +60,41 @@ CREATE TABLE IF NOT EXISTS auditoria (
 CREATE INDEX IF NOT EXISTS idx_auditoria_usuario_id ON auditoria(usuario_id);
 CREATE INDEX IF NOT EXISTS idx_auditoria_fecha_hora ON auditoria(fecha_hora);
 CREATE INDEX IF NOT EXISTS idx_auditoria_entidad ON auditoria(entidad);
+
+
+-- ============================================================
+-- MÓDULO: MATERIAS  [CA-016]
+-- Descripción: Catálogo de materias académicas del sistema.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS materias (
+    id SERIAL PRIMARY KEY,
+    codigo VARCHAR(20) UNIQUE NOT NULL,
+    nombre VARCHAR(200) NOT NULL,
+    creditos INT NOT NULL DEFAULT 3,
+    descripcion TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_materias_codigo ON materias(codigo);
+
+
+-- ============================================================
+-- MÓDULO: INSCRIPCIONES  [CA-017]
+-- Descripción: Inscripciones de estudiantes a materias.
+-- FK: estudiante_id -> usuarios(id)
+-- FK: materia_id    -> materias(id)
+-- UNIQUE: un estudiante no puede inscribirse dos veces a la misma materia.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS inscripciones (
+    id SERIAL PRIMARY KEY,
+    estudiante_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    materia_id    INTEGER NOT NULL REFERENCES materias(id) ON DELETE CASCADE,
+    fecha_inscripcion TIMESTAMP DEFAULT NOW(),
+    CONSTRAINT uk_inscripcion UNIQUE (estudiante_id, materia_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_inscripciones_estudiante ON inscripciones(estudiante_id);
+CREATE INDEX IF NOT EXISTS idx_inscripciones_materia    ON inscripciones(materia_id);

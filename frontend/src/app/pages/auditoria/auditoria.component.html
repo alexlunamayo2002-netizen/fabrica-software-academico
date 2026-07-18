@@ -1,0 +1,72 @@
+<div class="auditoria-layout">
+  <header class="topbar">
+    <div class="brand">
+      <button class="btn-back" (click)="goBack()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </button>
+      <div class="logo">FA</div>
+      <div>
+        <h1>Auditoría del Sistema</h1>
+        <span class="subtitle">Historial de acciones — solo ADMIN</span>
+      </div>
+    </div>
+    <div class="user-profile" *ngIf="user">
+      <div class="avatar">{{ user.nombre.charAt(0).toUpperCase() }}</div>
+      <div class="user-info">
+        <span class="name">{{ user.nombre }}</span>
+        <span class="role-badge">ADMIN</span>
+      </div>
+      <button class="btn-logout" (click)="logout()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="content">
+    <div class="alert-error" *ngIf="error">{{ error }}</div>
+
+    <div class="loading-state" *ngIf="loading">
+      <div class="spinner"></div>
+      <p>Cargando registros de auditoría...</p>
+    </div>
+
+    <ng-container *ngIf="!loading && !error">
+      <section class="section">
+        <h2 class="section-title">Eventos registrados <span class="count">({{ eventos.length }})</span></h2>
+
+        <div class="table-wrapper">
+          <table class="audit-table" *ngIf="eventos.length > 0; else emptyState">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Acción</th>
+                <th>Usuario</th>
+                <th>Detalles</th>
+                <th>IP</th>
+                <th>Fecha y hora</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let e of eventos; let i = index">
+                <td class="id-cell">{{ e.id }}</td>
+                <td>
+                  <span class="accion-badge" [class]="accionColor(e.accion)">{{ e.accion }}</span>
+                </td>
+                <td>
+                  <span *ngIf="e.usuarioNombre">{{ e.usuarioNombre }}</span>
+                  <span class="dim" *ngIf="!e.usuarioNombre">—</span>
+                </td>
+                <td class="detalles-cell">{{ e.detalles }}</td>
+                <td class="ip-cell">{{ e.ipAddress }}</td>
+                <td class="fecha-cell">{{ formatFecha(e.fechaHora) }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <ng-template #emptyState>
+            <div class="empty-state"><p>No hay eventos registrados.</p></div>
+          </ng-template>
+        </div>
+      </section>
+    </ng-container>
+  </main>
+</div>

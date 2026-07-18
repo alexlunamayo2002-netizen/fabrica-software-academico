@@ -4,6 +4,13 @@ const { Role } = require('../models/Role');
 const { Usuario } = require('../models/Usuario');
 const { Auditoria } = require('../models/Auditoria');
 
+const auditoriaOn = process.env.AUDITORIA_ENABLED !== 'false';
+const audit = (data) => auditoriaOn ? Auditoria.registrar(data) : Promise.resolve();
+
+const rolId = (ctx) => Number(ctx.user?.rol_id);
+const isAdmin         = (ctx) => rolId(ctx) === 1;
+const isAdminOrDocente = (ctx) => rolId(ctx) === 1 || rolId(ctx) === 2;
+
 const resolvers = {
   Usuario: {
     rol: (parent) => Role.findById(parent.rol_id),
@@ -21,21 +28,31 @@ const resolvers = {
   Query: {
     me: (_, __, context) => {
       if (!context.user) throw new Error('No autenticado');
-      return context.user;
+      return Usuario.findById(context.user.id);
     },
-    usuarios: () => Usuario.findAll(),
-    usuario: (_, { id }) => Usuario.findById(id),
+    usuarios: (_, __, context) => {
+      if (!context.user) throw new Error('No autenticado');
+      if (!isAdminOrDocente(context)) throw new Error('No autorizado');
+      return Usuario.findAll();
+    },
+    usuario: (_, { id }, context) => {
+      if (!context.user) throw new Error('No autenticado');
+      return Usuario.findById(id);
+    },
     roles: () => Role.findAll(),
     auditoria: async (_, { limit = 50, offset = 0 }, context) => {
       if (!context.user) throw new Error('No autenticado');
+      if (!isAdmin(context)) throw new Error('No autorizado: solo ADMIN');
       return Auditoria.findAll(limit, offset);
     },
     auditoriaByUsuario: async (_, { usuarioId, limit = 50 }, context) => {
       if (!context.user) throw new Error('No autenticado');
+      if (!isAdmin(context)) throw new Error('No autorizado: solo ADMIN');
       return Auditoria.findByUsuario(usuarioId, limit);
     },
     auditoriaByAccion: async (_, { accion, limit = 50 }, context) => {
       if (!context.user) throw new Error('No autenticado');
+      if (!isAdmin(context)) throw new Error('No autorizado: solo ADMIN');
       return Auditoria.findByAccion(accion, limit);
     },
   },
@@ -57,7 +74,7 @@ const resolvers = {
         ? (context.req.headers['x-forwarded-for'] || context.req.socket?.remoteAddress || 'desconocida')
         : 'desconocida';
 
-      await Auditoria.registrar({
+      await audit({
         usuarioId: usuario.id, accion: 'REGISTRO', entidad: 'usuarios',
         entidadId: usuario.id, detalles: `Nuevo usuario registrado: ${email}`, ipAddress,
       });
@@ -72,7 +89,7 @@ const resolvers = {
 
       const user = await Usuario.findByEmail(email);
       if (!user) {
-        await Auditoria.registrar({
+        await audit({
           usuarioId: null, accion: 'LOGIN_FALLIDO', entidad: 'usuarios', entidadId: null,
           detalles: `Intento de login fallido - email no encontrado: ${email}`, ipAddress,
         });
@@ -81,7 +98,7 @@ const resolvers = {
 
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
-        await Auditoria.registrar({
+        await audit({
           usuarioId: user.id, accion: 'LOGIN_FALLIDO', entidad: 'usuarios', entidadId: user.id,
           detalles: `Intento de login fallido - contraseña incorrecta: ${email}`, ipAddress,
         });
@@ -95,7 +112,7 @@ const resolvers = {
 
       const token = jwt.sign(usuarioReturn, process.env.JWT_SECRET, { expiresIn: '24h' });
 
-      await Auditoria.registrar({
+      await audit({
         usuarioId: user.id, accion: 'LOGIN', entidad: 'usuarios',
         entidadId: user.id, detalles: `Login exitoso: ${email}`, ipAddress,
       });
@@ -108,7 +125,7 @@ const resolvers = {
       const ipAddress = context.req
         ? (context.req.headers['x-forwarded-for'] || context.req.socket?.remoteAddress || 'desconocida')
         : 'desconocida';
-      await Auditoria.registrar({
+      await audit({
         usuarioId: context.user.id, accion: 'LOGOUT', entidad: 'usuarios',
         entidadId: context.user.id, detalles: `Logout: ${context.user.email}`, ipAddress,
       });

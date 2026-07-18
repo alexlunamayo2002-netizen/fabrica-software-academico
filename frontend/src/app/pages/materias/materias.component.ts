@@ -1,10 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MateriaService } from '../../services/materia.service';
 import { AuthService } from '../../services/auth.service';
-import { Materia } from '../../models/user.model';
+import { Materia, Role } from '../../models/user.model';
 
 @Component({
   selector: 'app-materias',
@@ -22,12 +22,18 @@ export class MateriasComponent implements OnInit {
   savingForm = false;
   deleteConfirmId: string | null = null;
   form!: FormGroup;
+  Role = Role;
+
+  get canCreate() { const r = this.user?.rol; return r === Role.ADMIN || r === Role.DOCENTE; }
+  get canEdit()   { const r = this.user?.rol; return r === Role.ADMIN || r === Role.DOCENTE; }
+  get canDelete() { return this.user?.rol === Role.ADMIN; }
 
   constructor(
     private materiaService: MateriaService,
     private authService: AuthService,
     private fb: FormBuilder,
-    private router: Router
+    private router: Router,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
@@ -48,8 +54,8 @@ export class MateriasComponent implements OnInit {
     this.loading = true;
     this.error = '';
     this.materiaService.getMaterias().subscribe({
-      next: (data) => { this.materias = data; this.loading = false; },
-      error: (err) => { this.error = err.message; this.loading = false; }
+      next: (data) => { this.materias = data; this.loading = false; this.cdr.detectChanges(); },
+      error: (err) => { this.error = err.message; this.loading = false; this.cdr.detectChanges(); }
     });
   }
 
@@ -80,8 +86,8 @@ export class MateriasComponent implements OnInit {
       : this.materiaService.crearMateria(codigo, nombre, creditos, descripcion || undefined);
 
     op$.subscribe({
-      next: () => { this.savingForm = false; this.closeForm(); this.loadMaterias(); },
-      error: (err) => { this.error = err.message; this.savingForm = false; }
+      next: () => { this.savingForm = false; this.closeForm(); this.loadMaterias(); this.cdr.detectChanges(); },
+      error: (err) => { this.error = err.message; this.savingForm = false; this.cdr.detectChanges(); }
     });
   }
 

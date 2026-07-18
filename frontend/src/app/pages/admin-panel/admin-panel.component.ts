@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
@@ -21,7 +21,8 @@ export class AdminPanelComponent implements OnInit {
   constructor(
     private adminService: AdminService,
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
@@ -33,8 +34,9 @@ export class AdminPanelComponent implements OnInit {
         this.stats    = stats;
         this.usuarios = usuarios;
         this.loading  = false;
+        this.cdr.detectChanges();
       },
-      error: err => { this.error = err.message; this.loading = false; }
+      error: err => { this.error = err.message; this.loading = false; this.cdr.detectChanges(); }
     });
   }
 

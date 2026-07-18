@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { Usuario, Role } from '../../models/user.model';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-dashboard',
@@ -13,9 +14,8 @@ import { Usuario, Role } from '../../models/user.model';
 })
 export class DashboardComponent implements OnInit {
   user: Usuario | null = null;
-  
-  // Expose Role enum to template
   Role = Role;
+  features = environment.features;
 
   constructor(
     private authService: AuthService,

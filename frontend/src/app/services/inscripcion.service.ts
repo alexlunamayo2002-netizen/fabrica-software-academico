@@ -96,7 +96,7 @@ export class InscripcionService {
   }
 
   getUsuarios(): Observable<Usuario[]> {
-    const query = `{ usuarios { id nombre email rol } }`;
+    const query = `{ usuarios { id nombre email rol { nombre } } }`;
     return this.post(query).pipe(
       switchMap(res => {
         if (res.errors) return throwError(() => new Error(res.errors[0].message));

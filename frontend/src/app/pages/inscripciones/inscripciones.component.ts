@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -38,7 +38,8 @@ export class InscripcionesComponent implements OnInit {
     private materiaService: MateriaService,
     private authService: AuthService,
     private fb: FormBuilder,
-    private router: Router
+    private router: Router,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
@@ -51,8 +52,8 @@ export class InscripcionesComponent implements OnInit {
   }
 
   private loadCatalogos() {
-    this.materiaService.getMaterias().subscribe({ next: d => this.materias = d });
-    this.inscripcionService.getUsuarios().subscribe({ next: d => this.usuarios = d });
+    this.materiaService.getMaterias().subscribe({ next: d => { this.materias = d; this.cdr.detectChanges(); } });
+    this.inscripcionService.getUsuarios().subscribe({ next: d => { this.usuarios = d; this.cdr.detectChanges(); } });
   }
 
   loadInscripciones() {
@@ -67,8 +68,8 @@ export class InscripcionesComponent implements OnInit {
       obs$ = this.inscripcionService.getInscripciones();
     }
     obs$.subscribe({
-      next: d => { this.inscripciones = d; this.loading = false; },
-      error: err => { this.error = err.message; this.loading = false; }
+      next: d => { this.inscripciones = d; this.loading = false; this.cdr.detectChanges(); },
+      error: err => { this.error = err.message; this.loading = false; this.cdr.detectChanges(); }
     });
   }
 
@@ -96,8 +97,9 @@ export class InscripcionesComponent implements OnInit {
         this.savingForm = false;
         this.form.reset();
         this.loadInscripciones();
+        this.cdr.detectChanges();
       },
-      error: err => { this.error = err.message; this.savingForm = false; }
+      error: err => { this.error = err.message; this.savingForm = false; this.cdr.detectChanges(); }
     });
   }
 
