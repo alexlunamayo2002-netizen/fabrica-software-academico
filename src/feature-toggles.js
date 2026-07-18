@@ -28,11 +28,13 @@ function cargarConfig(startDir = process.cwd()) {
 }
 
 // Commonalities: siempre activos aunque el usuario los ponga en false.
+// CA-018 (auto-setup de BD) es obligatorio: TODO producto debe crear su
+// base y sus tablas (según los assets activos), no es un punto de variabilidad.
 const OBLIGATORIOS = new Set([
   'CA-001_DesignSystem', 'CA-002_ModeloUsuarioFront', 'CA-003_AuthService',
   'CA-004_AuthGuard', 'CA-005_RoleGuard', 'CA-006_Login', 'CA-008_Dashboard',
   'CA-009_EsquemaGraphQLBase', 'CA-010_ResolversGraphQL', 'CA-011_JWTMiddleware',
-  'CA-013_ConfiguracionBD'
+  'CA-013_ConfiguracionBD', 'CA-018_SetupBD_Automatico'
 ]);
 
 /**
